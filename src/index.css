@@ -11,9 +11,9 @@ body,
 :root {
   color-scheme: dark;
 
-  /* Warm, dark palette echoing the public site's "Sacred Warmth" brand
-     (saffron/gold on deep stone) rather than copying a generic neon
-     dashboard look wholesale. */
+  /* Dark theme (default): same brand hues as the public site's "Sacred
+     Warmth" palette (saffron/gold/stone), just applied on a deep,
+     warm-black surface instead of the public site's light one. */
   --bg: #121010;
   --bg-elevated: #191613;
   --surface: #1e1a17;
@@ -21,15 +21,36 @@ body,
   --text-primary: #f5efe6;
   --text-secondary: #a89c8f;
   --text-muted: #766a5e;
-  --accent: #e8a33d;
-  --accent-strong: #f0b355;
-  --accent-contrast: #1a1310;
+  --accent: #f97316; /* saffron-500 */
+  --accent-strong: #fb923c; /* saffron-400, pops on dark */
+  --accent-contrast: #1c1917; /* stone-900 */
   --danger: #ef4444;
+  --media-bg: #0d0b0a;
+}
+
+/* Light theme: an exact match of kriyayoga/tailwind.config.mjs's palette
+   (saffron/stone/warmwhite), so toggling to light looks identical to the
+   public site's own light UI rather than an approximation. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fffbf5; /* warmwhite */
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --border: #e7e5e4; /* stone-200 */
+  --text-primary: #1c1917; /* stone-900 */
+  --text-secondary: #78716c; /* stone-500 */
+  --text-muted: #a8a29e; /* stone-400 */
+  --accent: #ea580c; /* saffron-600 */
+  --accent-strong: #c2410c; /* saffron-700 */
+  --accent-contrast: #ffffff;
+  --danger: #dc2626;
+  --media-bg: #f5f5f4; /* stone-100 */
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.15s, color 0.15s;
 }

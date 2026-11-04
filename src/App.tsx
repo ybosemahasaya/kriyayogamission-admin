@@ -6,6 +6,7 @@ import { Modal } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { UploadForm } from "./components/UploadForm";
 import { PlusIcon, SearchIcon } from "./components/icons";
+import { useTheme } from "./hooks/useTheme";
 import { GALLERY_CATEGORIES, type GalleryCategory } from "../shared/gallery-categories";
 import type { GalleryImageDTO } from "../shared/gallery-image";
 import "./App.css";
@@ -23,6 +24,8 @@ function App() {
 
   const [showUpload, setShowUpload] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImageDTO | null>(null);
+
+  const { theme, toggleTheme } = useTheme();
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -54,7 +57,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar theme={theme} onToggleTheme={toggleTheme} />
 
       <main className="app-main">
         <header className="main-header">

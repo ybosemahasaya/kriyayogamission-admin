@@ -34,20 +34,14 @@
 .sidebar-brand-mark {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 0.75rem;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
 .sidebar-brand strong {
   display: block;
-  font-size: 0.92rem;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 0.95rem;
   line-height: 1.3;
 }
 
@@ -90,16 +84,43 @@
 
 .sidebar-footer {
   margin-top: auto;
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   border-top: 1px solid var(--border);
   padding-top: 1rem;
+}
+
+.sidebar-footer p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ---------- Header / tabs / toolbar ---------- */
 
 .main-header h1 {
   margin: 0 0 0.35rem;
+  font-family: "Playfair Display", Georgia, serif;
   font-size: 1.9rem;
 }
 
@@ -241,7 +262,7 @@
 .card-media {
   position: relative;
   aspect-ratio: 4 / 3;
-  background: #0d0b0a;
+  background: var(--media-bg);
 }
 
 .card-media img {
@@ -380,6 +401,7 @@
 
 .modal-header h2 {
   margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
   font-size: 1.1rem;
 }
 

@@ -18,9 +18,10 @@ export interface Env {
   ASSETS: Fetcher;
   GALLERY_BUCKET?: R2Bucket;
   DB?: D1Database;
-  /** Cloudflare deploy hook URL for kriyayogamission-dev. Unset until
-   * that hook is created in the dashboard; see worker/lib/deploy-hook.ts. */
-  DEPLOY_HOOK_URL?: string;
+  /** Fine-grained GitHub PAT, Contents: read-write, scoped to ONLY the
+   * kriyayogamission repo. Used to auto-trigger a dev rebuild after
+   * gallery changes; see worker/lib/deploy-hook.ts. Unset until created. */
+  GITHUB_PAT?: string;
 }
 
 export interface GalleryImageRow {

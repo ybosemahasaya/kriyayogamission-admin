@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Separate Cloudflare Worker project for the admin panel. This is a brand
+  // new project -- it must NEVER be pointed at the public site's Worker name,
+  // domain, or bindings. See docs/admin-panel-architecture.html for the full
+  // "do not touch kriyayogamission dev/production" restriction.
+  "name": "kriyayogamission-admin",
+  "compatibility_date": "2025-01-01",
+  "main": "./worker/index.ts",
+
+  // Static assets = the built React SPA (dist/client after `vite build`).
+  // "single-page-application" fallback means any unmatched path serves
+  // index.html so client-side routing works on refresh/deep links.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+
+  // --- Bindings below are PLACEHOLDERS. ---
+  // Phase 1 checklist items "provision-r2" and "provision-d1" (see
+  // docs/admin-panel-architecture.html) must be done in the Cloudflare
+  // dashboard first, under this project's own account resources -- NOT by
+  // reusing/renaming anything that belongs to the public kriyayogamission
+  // site. Fill in the real bucket_name / database_id once those exist, then
+  // uncomment.
+  //
+  // "r2_buckets": [
+  //   { "binding": "GALLERY_BUCKET", "bucket_name": "kriyayogamission-admin-gallery" }
+  // ],
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "kriyayogamission-admin-db",
+  //     "database_id": "REPLACE_ME_AFTER_PROVISIONING"
+  //   }
+  // ],
+
+  "observability": {
+    "enabled": true
+  }
+}

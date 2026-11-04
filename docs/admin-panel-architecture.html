@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Panel — Architecture &amp; Roadmap — Kriya Yoga Mission</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .step-card.done { opacity: 0.55; }
+  .step-card.done .step-title { text-decoration: line-through; }
+  .badge-phase1 { background:#dbeafe; color:#1e40af; }
+  .badge-phase2 { background:#ede9fe; color:#5b21b6; }
+  .badge-decision { background:#fef3c7; color:#92400e; }
+</style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+  <header style="background: linear-gradient(to right, #1e3a8a, #1e293b);" class="text-white">
+    <div class="max-w-5xl mx-auto px-6 py-10">
+      <p class="text-xs font-semibold tracking-[0.2em] uppercase mb-2" style="color:#bfdbfe;">kriyayogamission.org &middot; Living Architecture Doc</p>
+      <h1 class="text-3xl sm:text-4xl font-bold">Admin Panel — Architecture &amp; Roadmap</h1>
+      <p class="mt-2 max-w-2xl" style="color:#e0e7ff;">
+        Plan for a login-gated admin console that lets the mission's team upload gallery photos
+        (and eventually manage more site content) without touching code. Lives in its own repo and
+        its own Cloudflare Worker, completely separate from the public site. Checkboxes persist in
+        this browser via localStorage. Update this file in place as decisions get made and phases
+        ship — don't create a second doc for the same project.
+      </p>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-10 space-y-12">
+
+    <section class="bg-red-50 rounded-2xl border-2 border-red-400 shadow-sm p-6">
+      <h2 class="text-xl font-bold text-red-800 mb-3 flex items-center gap-2">
+        <span aria-hidden="true">&#x26D4;</span> STRICT RESTRICTION — Do not touch the existing kriyayogamission dev/production project
+      </h2>
+      <p class="text-red-700 leading-relaxed mb-3">
+        This admin panel is a <strong>net-new, fully separate initiative</strong>. Under no circumstances
+        should building, testing, or deploying it involve modifying the existing public site's live
+        repo, Cloudflare projects, or configuration. Specifically, anyone (human or agent) working on
+        this admin panel must <strong>never</strong>:
+      </p>
+      <ul class="list-disc list-inside text-red-700 leading-relaxed space-y-1 mb-3">
+        <li>Push commits, open branches, or edit files directly in the <code class="bg-red-100 px-1 rounded">kriyayogamission</code> repo (public site) for admin-panel work. The admin panel lives entirely in its own <code class="bg-red-100 px-1 rounded">kriyayogamission-admin</code> repo.</li>
+        <li>Change Cloudflare settings, env vars, secrets, custom domains, DNS records, or build configuration on the existing <code class="bg-red-100 px-1 rounded">kriyayogamission</code> (production) or <code class="bg-red-100 px-1 rounded">kriyayogamission-dev</code> (dev) Worker/Pages projects.</li>
+        <li>Trigger a production deploy, deploy hook, or rollback on the existing site as a side effect of admin-panel work, without explicit, separate confirmation.</li>
+        <li>Delete, overwrite, or restructure any file in the public site (e.g. <code class="bg-red-100 px-1 rounded">Gallery.astro</code>, <code class="bg-red-100 px-1 rounded">src/data/site.ts</code>, <code class="bg-red-100 px-1 rounded">worker.js</code>) outside of the one explicitly-reviewed, explicitly-approved cross-repo change described later in this doc (wiring D1 fetch into <code class="bg-red-100 px-1 rounded">Gallery.astro</code>) — and even that change must be proposed, reviewed, and tested on <code class="bg-red-100 px-1 rounded">dev</code> first, never applied straight to <code class="bg-red-100 px-1 rounded">main</code>/production.</li>
+        <li>Reuse, repurpose, or quietly reconfigure the existing R2/D1/Access resources that back the public site — any new resource this project needs (buckets, databases, Access applications) must be newly provisioned for the admin panel, not retrofitted from production ones.</li>
+      </ul>
+      <p class="text-red-700 leading-relaxed">
+        If any step in this roadmap seems to require touching the existing dev or production project/config,
+        stop and get explicit human sign-off before proceeding — do not assume it's fine because it's "just a small change."
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3">Why a separate repo and a separate Worker?</h2>
+      <p class="text-stone-600 leading-relaxed">
+        The public site (<code class="bg-stone-100 px-1 rounded">kriyayogamission/kriyayogamission</code>)
+        is a fully static Astro build (<code class="bg-stone-100 px-1 rounded">output: "static"</code>)
+        — no server-side rendering, no database, every page baked into plain HTML at build time. That's
+        deliberate: it's fast, cheap, and great for SEO. An admin console is the opposite kind of
+        application — it needs auth, file uploads, and a database — so bolting it onto the same static
+        site would mean dragging the whole public site into a heavier rendering model it doesn't need.
+        Keeping the admin panel as its own repo
+        (<a href="https://github.com/ybosemahasaya/kriyayogamission-admin.git" class="text-blue-700 underline" target="_blank" rel="noopener noreferrer">kriyayogamission-admin</a>)
+        deployed to its own Cloudflare Worker project means: independent deploys (an admin panel bug
+        can't break the public site), independent scaling/cost tracking, and a clean mental model —
+        "the public site" and "the internal tool that manages some of its content" are different
+        programs that happen to share some Cloudflare account-level resources (R2, D1).
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3 flex items-center gap-2">Tech stack decision: "what if we use Python and React?" <span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full" style="background:#dcfce7; color:#166534;">DECIDED</span></h2>
+      <p class="text-stone-600 leading-relaxed mb-4">
+        Split answer — <strong>React: yes. Python: no.</strong> Here's the reasoning for each half:
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-4">
+        <strong class="text-stone-800">React is a good fit for the frontend.</strong> The public site
+        is static specifically because it needs to be fast and indexable by Google — neither of those
+        pressures apply to an internal admin tool that only a couple of trusted people will ever open.
+        A React single-page app (built as static files via Vite) is a perfectly reasonable, even good,
+        choice here: forms, live image previews, drag-to-reorder, inline editing — all things React
+        handles well. The built React app still just ships as static JS/CSS/HTML files, served from
+        the admin Worker's static assets binding, exactly like the main site's Worker already serves
+        its own static build today.
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-4">
+        <strong class="text-stone-800">Python is not recommended for the Worker/backend logic.</strong>
+        Cloudflare does offer "Python Workers," but it's explicitly a <em>beta</em> product that runs
+        Python via Pyodide (a full CPython interpreter compiled to WebAssembly) — meaning slower cold
+        starts, a much larger deployed bundle, and only a curated subset of PyPI packages actually work
+        (pure-Python only; most packages with C extensions don't run at all in the WASM sandbox). R2,
+        D1, and Cloudflare Access integration are all first-class, mature, and fully documented in
+        JavaScript/TypeScript — Python support lags behind and has rougher edges for exactly the
+        bindings this project needs most. There is no part of this admin panel's backend (checking an
+        Access header, writing a file to R2, inserting a database row) that benefits from Python
+        specifically — introducing it would just mean maintaining two languages across one small
+        project for no technical gain. The existing <code class="bg-stone-100 px-1 rounded">worker.js</code>
+        already proved this pattern works well for the <code class="bg-stone-100 px-1 rounded">/api/contact</code>
+        route; the admin Worker's API routes should follow the same approach.
+      </p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
+          <thead class="bg-stone-100 text-stone-600">
+            <tr><th class="text-left px-4 py-2">Layer</th><th class="text-left px-4 py-2">Recommended</th><th class="text-left px-4 py-2">Why</th></tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr><td class="px-4 py-2 font-medium">Frontend</td><td class="px-4 py-2">React + Vite (static SPA)</td><td class="px-4 py-2 text-stone-500">No SEO/SSR need for an internal tool; Vite builds plain static files</td></tr>
+            <tr><td class="px-4 py-2 font-medium">Backend / API routes</td><td class="px-4 py-2">TypeScript on Cloudflare Workers</td><td class="px-4 py-2 text-stone-500">Mature bindings, fast cold starts, same pattern as the public site's worker.js</td></tr>
+            <tr><td class="px-4 py-2 font-medium">Image storage</td><td class="px-4 py-2">Cloudflare R2</td><td class="px-4 py-2 text-stone-500">S3-compatible, no egress fees, native Worker binding</td></tr>
+            <tr><td class="px-4 py-2 font-medium">Structured data</td><td class="px-4 py-2">Cloudflare D1</td><td class="px-4 py-2 text-stone-500">Serverless SQLite, native Worker binding, queryable via REST API at build time too</td></tr>
+            <tr><td class="px-4 py-2 font-medium">Auth / IAM</td><td class="px-4 py-2">Cloudflare Access (Zero Trust)</td><td class="px-4 py-2 text-stone-500">Free up to 50 users, no custom login/session code to write or maintain</td></tr>
+            <tr><td class="px-4 py-2 font-medium">Repo</td><td class="px-4 py-2"><a href="https://github.com/ybosemahasaya/kriyayogamission-admin.git" class="text-blue-700 underline" target="_blank" rel="noopener noreferrer">kriyayogamission-admin</a></td><td class="px-4 py-2 text-stone-500">Fully separate from the public site's repo</td></tr>
+            <tr><td class="px-4 py-2 font-medium">Deploy</td><td class="px-4 py-2">New Cloudflare Worker project</td><td class="px-4 py-2 text-stone-500">Git-connected, same auto-build pattern as kriyayogamission / kriyayogamission-dev</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-stone-600 leading-relaxed mt-4 bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+        <strong class="text-green-800">Confirmed:</strong> the admin panel frontend will be built in
+        <strong>TypeScript + React, using Vite, as a static SPA</strong> — no Next.js/Remix SSR, no
+        plain JavaScript. The build output ships as plain static HTML/CSS/JS, served by the admin
+        Worker's static assets binding, exactly the same mechanism the public site already uses for
+        its own static build.
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3">Cloudflare language support — full comparison</h2>
+      <p class="text-stone-600 leading-relaxed mb-4">
+        Cloudflare Workers run on <strong>V8 isolates</strong> (the same engine inside Chrome), not
+        containers or VMs — that's the single biggest factor behind every efficiency difference below.
+        Anything that runs as native JS on V8 is fast by default; anything else has to either compile
+        down to JS or run inside a WebAssembly sandbox, with real trade-offs.
+      </p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
+          <thead class="bg-stone-100 text-stone-600">
+            <tr><th class="text-left px-3 py-2">Language</th><th class="text-left px-3 py-2">How it runs</th><th class="text-left px-3 py-2">Cold start</th><th class="text-left px-3 py-2">Status</th></tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr><td class="px-3 py-2 font-medium">JavaScript</td><td class="px-3 py-2 text-stone-500">Native on V8 isolates</td><td class="px-3 py-2 text-stone-500">Fastest (sub-5ms typical)</td><td class="px-3 py-2">GA, reference implementation</td></tr>
+            <tr><td class="px-3 py-2 font-medium">TypeScript</td><td class="px-3 py-2 text-stone-500">Transpiled to plain JS at deploy time (esbuild) -- zero runtime cost</td><td class="px-3 py-2 text-stone-500">Identical to JS</td><td class="px-3 py-2"><strong>GA, our default</strong></td></tr>
+            <tr><td class="px-3 py-2 font-medium">"Node.js" (nodejs_compat flag)</td><td class="px-3 py-2 text-stone-500">Not a separate runtime -- polyfills some Node built-ins on top of the same JS/V8 engine</td><td class="px-3 py-2 text-stone-500">Same as JS/TS</td><td class="px-3 py-2">GA compatibility layer, not a language</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Python</td><td class="px-3 py-2 text-stone-500">Pyodide -- full CPython compiled to WASM</td><td class="px-3 py-2 text-stone-500">Noticeably slower</td><td class="px-3 py-2">Beta -- not recommended for latency-sensitive production work</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Rust</td><td class="px-3 py-2 text-stone-500">Compiled ahead-of-time to WASM (workers-rs)</td><td class="px-3 py-2 text-stone-500">Fast</td><td class="px-3 py-2">GA -- best for CPU-heavy work, not needed here</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Go / C# / C++</td><td class="px-3 py-2 text-stone-500">WASM via Emscripten/Go-WASM/Blazor</td><td class="px-3 py-2 text-stone-500">Slow, large bundles</td><td class="px-3 py-2">Community-only, not recommended</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3">TypeScript vs. Node.js -- clarifying the real choice</h2>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        These aren't actually competing options. <strong>TypeScript</strong> is a programming language
+        (compiles to plain JS before anything runs). <strong>Node.js</strong> is a JavaScript
+        <em>runtime</em> -- a way of executing JS on a server you manage, completely separate from
+        Cloudflare Workers' own V8-isolate runtime. The real decision is
+        <strong>Cloudflare Workers vs. a traditional Node.js server</strong>, not TS vs. Node.
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        A traditional Node.js server genuinely wins when you need: full filesystem access, native
+        npm packages with compiled C/C++ bindings, no per-request CPU time ceiling, or a long-running
+        process (a persistent WebSocket server, a continuous background job queue). <strong>None of
+        that applies to this admin panel</strong> -- checking an Access header, writing a file to R2,
+        and querying D1 are all officially and natively supported inside a Cloudflare Worker today.
+      </p>
+      <p class="text-stone-600 leading-relaxed">
+        Choosing a separate Node.js host instead would mean: a second hosting platform outside
+        Cloudflare, losing in-process R2/D1 bindings (would need slower HTTP calls instead), taking on
+        server management (patching, scaling, uptime) ourselves, and paying for always-on hosting
+        instead of Workers' generous free tier. <strong>Verdict: TypeScript on Cloudflare Workers</strong>,
+        not a separate Node.js server.
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3">React on Cloudflare -- deployment patterns, and why the public site stays Astro</h2>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        Cloudflare supports React well in three different shapes: a <strong>static SPA</strong>
+        (Vite + React, ships as plain static files, blank page until the JS bundle runs -- fine for an
+        internal tool, bad for SEO), <strong>server-rendered React</strong> (Next.js/Remix via
+        Cloudflare's official adapters, real HTML on first paint but every request now does live
+        rendering work in a Worker), or <strong>React as islands inside Astro</strong>
+        (<code class="bg-stone-100 px-1 rounded">@astrojs/react</code> -- only the specific component
+        that needs interactivity ships React/JS, everything else on the page stays static HTML).
+      </p>
+      <p class="text-stone-600 leading-relaxed">
+        <strong class="text-stone-800">Admin panel:</strong> static React SPA is the right fit -- no
+        SEO requirement, tiny trusted audience, the blank-until-JS trade-off doesn't matter.
+        <strong class="text-stone-800">Public site:</strong> stays Astro, deliberately not migrated to
+        React or Next.js -- the public site already has strong, hard-won Lighthouse/PageSpeed scores
+        (see <code class="bg-stone-100 px-1 rounded">docs/vulnerabilities-and-roadmap.html</code>)
+        built on Astro's zero-JS-by-default model, and switching frameworks would risk regressing that
+        for no real benefit. If a future public-site feature ever needs genuinely heavy client-side
+        interactivity, add it as a React <em>island</em> on just that one component -- not a wholesale
+        framework swap.
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3">Access management (IAM) for the login page</h2>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Cloudflare Access</strong> sits in front of the admin Worker at
+        Cloudflare's edge, before any request reaches our code. An Access Application gets scoped to
+        the admin domain/path (e.g. <code class="bg-stone-100 px-1 rounded">admin.kriyayogamission.org/*</code>),
+        with a policy allowlisting specific email addresses. Visitors hitting that path get a
+        Cloudflare-hosted login screen, and only allowlisted emails get through. No password storage,
+        no session management, no "forgot password" flow to build -- all of that is Cloudflare's
+        problem, not ours. The admin Worker can optionally double-check the signed JWT Access attaches
+        to each request, but the heavy lifting happens before our code ever runs.
+      </p>
+      <p class="text-stone-600 leading-relaxed">
+        <strong class="text-stone-800">Recommended login method: Email One-Time PIN (OTP).</strong>
+        Cloudflare Access supports several identity providers -- email OTP (Cloudflare emails a
+        one-time code on login, no account/password needed anywhere), or SSO via Google/GitHub/Microsoft
+        if admins already have accounts with those. For a small team, <strong>email OTP is the simplest
+        default</strong>: it works for literally any email address on the allowlist with zero setup
+        per-admin, requires no OAuth app registration, and nobody needs to remember a separate password.
+        If the team already standardizes on Google Workspace/Gmail accounts, Google SSO is a reasonable
+        upgrade later -- but OTP is the right starting point.
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#93c5fd;">
+      <h2 class="text-xl font-bold text-stone-800 mb-3">How a new gallery image reaches the public site</h2>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        The public <code class="bg-stone-100 px-1 rounded">/gallery</code> page stays static (fast,
+        cheap, SEO-friendly, unchanged for visitors) rather than being converted to render on every
+        request. The loop looks like this:
+      </p>
+      <ol class="list-decimal list-inside text-stone-600 leading-relaxed space-y-1">
+        <li>Admin logs in (Cloudflare Access) and uploads an image + category + caption</li>
+        <li>Admin Worker validates the file, writes it to R2, inserts a row into D1</li>
+        <li>Admin Worker calls a Cloudflare <strong>Deploy Hook</strong> on the public site's project — the same mechanism a normal git push already triggers</li>
+        <li>The public site's build runs; <code class="bg-stone-100 px-1 rounded">Gallery.astro</code>'s frontmatter fetches the current rows from D1 (via Cloudflare's D1 REST API, a plain fetch call usable during <code class="bg-stone-100 px-1 rounded">astro build</code>) instead of the hardcoded array</li>
+        <li>New image is live on <code class="bg-stone-100 px-1 rounded">/gallery</code> within roughly a minute, same categorized grid/lightbox UI as today</li>
+      </ol>
+      <p class="text-stone-500 text-sm mt-3">
+        Trade-off accepted deliberately: a short delay between upload and the image going live, in
+        exchange for keeping the public gallery page 100% static. See the "shared D1/R2" open decision
+        below for the alternative (a live/dynamic gallery page).
+      </p>
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-stone-600">Phase 1 (gallery upload MVP) progress</span>
+        <span id="progress-label" class="text-sm font-medium text-stone-600">0 / 0</span>
+      </div>
+      <div class="w-full h-3 bg-stone-200 rounded-full overflow-hidden">
+        <div id="progress-bar" class="h-full transition-all duration-300" style="width:0%; background:#2563eb;"></div>
+      </div>
+      <p class="text-xs text-stone-400 mt-2">Only counts Phase 1 + Decisions Needed. Phase 2 is someday-shelf and doesn't count toward this bar.</p>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-bold text-stone-800 mb-1">Phase 1 — Gallery upload admin (MVP)</h2>
+      <p class="text-stone-500 text-sm mb-4">The minimum needed to replace manually editing Gallery.astro's hardcoded array with a real login-gated upload UI.</p>
+      <div class="space-y-4" id="checklist-phase1"></div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-bold text-stone-800 mb-1">Needs your decision</h2>
+      <p class="text-stone-500 text-sm mb-4">Real trade-offs only you can choose — not silent default picks.</p>
+      <div class="space-y-4" id="checklist-decision"></div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-bold text-stone-800 mb-1">Phase 2+ — Future roadmap (someday-shelf)</h2>
+      <p class="text-stone-500 text-sm mb-4">Explicitly planned for later: GA4 reporting inside the admin panel, and expanding beyond gallery images into general site-content management.</p>
+      <div class="space-y-4" id="checklist-phase2"></div>
+    </section>
+
+    <section class="rounded-2xl p-6 text-white" style="background: linear-gradient(135deg, #1e3a8a, #1e293b);">
+      <h2 class="text-xl font-bold mb-2"> Suggested Solution -- follow these while building</h2>
+      <p class="mb-4" style="color:#dbeafe;">Everything below is a final, locked-in recommendation from the discussion above. Treat this as the checklist of defaults to follow unless a specific future decision explicitly overrides one.</p>
+      <ul class="space-y-2 text-sm" style="color:#eff6ff;">
+        <li>• <strong>Public site</strong> (kriyayogamission.org) stays Astro, fully static -- do not migrate to React/Next.js. Use a React "island" (<code class="bg-white/10 px-1 rounded">@astrojs/react</code>) only if a specific future feature genuinely needs heavy client-side interactivity.</li>
+        <li>• <strong>Admin panel frontend</strong>: TypeScript + React, built with Vite, as a <strong>static SPA</strong> -- no Next.js/Remix SSR. Ships as plain static files served via the admin Worker's assets binding.</li>
+        <li>• <strong>Admin panel backend / API routes</strong>: TypeScript on Cloudflare Workers -- same pattern as the public site's <code class="bg-white/10 px-1 rounded">worker.js</code>. No Python, no separate Node.js server, no Rust (nothing here is CPU-bound enough to justify it).</li>
+        <li>• <strong>Login / IAM</strong>: Cloudflare Access (Zero Trust) gating the admin domain, policy-based email allowlist, <strong>Email OTP</strong> as the default identity provider. No custom login page, password storage, or session code to build.</li>
+        <li>• <strong>Image storage</strong>: Cloudflare R2. <strong>Structured data</strong> (categories, captions, order): Cloudflare D1.</li>
+        <li>• <strong>Public gallery stays static</strong>: admin publishes -> writes to R2/D1 -> triggers a Cloudflare Deploy Hook -> public site rebuilds -> Gallery.astro fetches current D1 rows at build time. No live/dynamic rendering of <code class="bg-white/10 px-1 rounded">/gallery</code>.</li>
+        <li>• <strong>Repo</strong>: new, separate GitHub repo <a href="https://github.com/ybosemahasaya/kriyayogamission-admin.git" class="underline" style="color:#bfdbfe;" target="_blank" rel="noopener noreferrer">kriyayogamission-admin</a>, with its own <code class="bg-white/10 px-1 rounded">dev</code>/<code class="bg-white/10 px-1 rounded">main</code> branch strategy mirroring the public site's.</li>
+        <li>• <strong>Deploy target</strong>: a new, separate Cloudflare Worker project, Git-connected, same auto-build pattern as <code class="bg-white/10 px-1 rounded">kriyayogamission</code> / <code class="bg-white/10 px-1 rounded">kriyayogamission-dev</code>.</li>
+      </ul>
+    </section>
+
+    <footer class="text-center text-stone-400 text-xs pt-8 pb-4">
+      Generated by Rio for Kriya Yoga Mission &middot; kept in <code class="bg-stone-100 px-1 rounded">docs/admin-panel-architecture.html</code> (in the main kriyayogamission repo for now — consider mirroring into kriyayogamission-admin once that repo exists) &middot; update in place as phases ship
+    </footer>
+  </main>
+
+<script>
+const phase1Items = [
+  {
+    id: "create-admin-repo",
+    title: "Create the kriyayogamission-admin GitHub repository",
+    path: "github.com/ybosemahasaya/kriyayogamission-admin",
+    detail: "Empty repo to start -- README, .gitignore (node_modules, .env, dist/build output), and a dev/main branch strategy mirroring the public site's (dev = active work, main = production)."
+  },
+  {
+    id: "scaffold-react-frontend",
+    title: "Scaffold the React admin UI with Vite",
+    path: "kriyayogamission-admin (new repo)",
+    detail: "Plain React + Vite static SPA. Pages: login-gate check, gallery grid (existing images with edit/delete), upload form (category picker matching the current 3 categories -- Gurudev, Kriya Yoga Mission, Guru Purnima 2026 -- plus caption/alt text fields and an image preview before submit)."
+  },
+  {
+    id: "new-cf-worker-project",
+    title: "Create a new Cloudflare Worker project for the admin panel, Git-connected to kriyayogamission-admin",
+    path: "Cloudflare dashboard -> Workers & Pages -> Create",
+    detail: "Serves the built React static assets (same ASSETS binding pattern as the public site's worker.js) plus the admin API routes. Needs its own custom domain, e.g. admin.kriyayogamission.org."
+  },
+  {
+    id: "cf-access-app",
+    title: "Configure a Cloudflare Access Application gating the admin domain",
+    path: "Cloudflare Zero Trust dashboard -> Access -> Applications",
+    detail: "Policy allowlists specific admin email addresses (see the 'how many admins' decision below). No custom login page needed -- Access provides its own hosted login UI."
+  },
+  {
+    id: "provision-r2",
+    title: "Provision an R2 bucket for gallery image uploads",
+    path: "Cloudflare dashboard -> R2",
+    detail: "Bind it to the admin Worker for writes. Decide (see decisions section) whether the public site's build process also needs read access to serve/reference these images."
+  },
+  {
+    id: "provision-d1",
+    title: "Provision a D1 database for gallery metadata, seeded from the current hardcoded array",
+    path: "Cloudflare dashboard -> D1",
+    detail: "One row per image: id, R2 key/src, alt text, caption, category, display-order/span. Initial migration: copy the existing IMAGES array out of Gallery.astro into seed rows so nothing currently on the gallery page is lost."
+  },
+  {
+    id: "admin-api-routes",
+    title: "Build the admin Worker's API routes (TypeScript)",
+    path: "kriyayogamission-admin worker code",
+    detail: "POST /api/gallery (validate file type/size, write to R2, insert D1 row), GET /api/gallery (list for the admin UI), PATCH /api/gallery/:id (edit caption/category/order), DELETE /api/gallery/:id. All routes sit behind the Cloudflare Access application -- no separate auth check needed beyond optionally validating the Access JWT."
+  },
+  {
+    id: "deploy-hook-wiring",
+    title: "Wire up a Cloudflare Deploy Hook so publishing triggers a public-site rebuild",
+    path: "kriyayogamission-dev project settings -> Deploy Hooks, called from the admin Worker",
+    detail: "After a successful R2 write + D1 insert, the admin Worker POSTs to the dev project's deploy hook URL. Test this path thoroughly on dev before wiring the production hook too."
+  },
+  {
+    id: "gallery-astro-d1-fetch",
+    title: "Update the public site's Gallery.astro to fetch from D1 at build time instead of the hardcoded array",
+    path: "kriyayogamission repo: src/components/Gallery.astro",
+    detail: "Cross-repo change -- happens in the main kriyayogamission repo, not the new admin repo. Astro's frontmatter can run a plain fetch() against Cloudflare's D1 REST API during astro build, replacing the static IMAGES array with live data while keeping the exact same generated HTML structure/categories/lightbox behavior."
+  },
+  {
+    id: "e2e-test-dev",
+    title: "End-to-end test on dev before touching production",
+    path: "admin.kriyayogamission.org (or dev equivalent) + dev.kriyayogamission.org/gallery",
+    detail: "Upload a real image through the admin UI, confirm it writes to R2/D1, confirm the deploy hook fires, confirm it shows up correctly categorized on the dev gallery page -- only then repeat for production."
+  }
+];
+
+const decisionItems = [
+  {
+    id: "how-many-admins",
+    title: "How many admin accounts / which specific email addresses get access?",
+    path: "Cloudflare Access policy allowlist",
+    detail: "Determines the Access policy's allowlist. Starting with just one or two trusted emails (e.g. the current contact-form recipient) is the safest default -- more can be added anytime without any code change."
+  },
+  {
+    id: "categories-fixed-or-editable",
+    title: "Should the 3 gallery categories stay fixed, or become admin-editable themselves?",
+    path: "D1 schema design",
+    detail: "Fixed (Gurudev / Kriya Yoga Mission / Guru Purnima 2026) is simpler for Phase 1 and matches what exists today. Making categories themselves creatable/renamable is a reasonable Phase 2 addition once the core upload flow is proven out."
+  },
+  {
+    id: "admin-domain-choice",
+    title: "Dedicated subdomain vs a path on the main site for the admin panel",
+    path: "DNS + Cloudflare Access application scope",
+    detail: "Recommended: a dedicated subdomain (admin.kriyayogamission.org) pointed at the new, separate Worker project. Cleaner separation than a path-based split on the existing domain, and matches the 'separate repo, separate Worker' decision above."
+  },
+  {
+    id: "auto-publish-vs-draft",
+    title: "Should uploads auto-publish immediately, or require a manual 'Publish' step (draft vs live)?",
+    path: "Admin Worker upload flow + D1 schema (a 'published' boolean)",
+    detail: "Auto-publish is simpler for Phase 1. A draft/review step adds real value once more than one person can upload, so mistakes can be caught before they go live -- worth revisiting if the team grows."
+  },
+  {
+    id: "shared-d1-r2-vs-public-api",
+    title: "Should the public site's build read D1/R2 directly, or should the admin Worker expose its own small public read-only API instead?",
+    path: "Architecture boundary between the two repos",
+    detail: "Direct D1 REST API access from the public build is simplest to start (fewer moving parts). The alternative -- a small public GET /api/gallery-data endpoint served by the admin Worker itself -- gives a cleaner boundary (the main site never needs D1 credentials) at the cost of one more network hop during builds. Revisit once Phase 2 adds more content types beyond just the gallery."
+  }
+];
+
+const phase2Items = [
+  {
+    id: "ga4-reporting-widget",
+    title: "GA4 reporting dashboard inside the admin panel",
+    path: "Google Analytics Data API (GA4 Reporting API v1)",
+    detail: "A read-only Google Cloud Service Account (Viewer role on the GA4 property) whose credentials live as an admin Worker secret, not committed anywhere. Admin dashboard shows pageviews, top pages, and the generate_lead conversion count (see the public site's DEPLOYMENT.md §12.3) without needing to leave the admin panel to check Google Analytics directly."
+  },
+  {
+    id: "general-cms-expansion",
+    title: "Expand beyond gallery images into general site-content management",
+    path: "D1 schema expansion + new admin UI sections",
+    detail: "Contact info, FAQ entries, book listings, testimonials/quotes, event announcement banners -- content currently hardcoded in src/data/site.ts and various .astro files. Natural evolution of the same pattern already built for the gallery: admin edits -> D1 row changes -> deploy hook -> public site rebuild. Effectively becomes a lightweight headless CMS over time."
+  },
+  {
+    id: "multi-role-permissions",
+    title: "Multi-admin roles/permissions, if more than one person needs different access levels",
+    path: "D1 (a roles table) + admin Worker route guards",
+    detail: "Only worth building once there's an actual second admin with a genuinely different responsibility (e.g. an editor who drafts vs a publisher who approves). Premature before then."
+  },
+  {
+    id: "audit-log",
+    title: "Audit log of admin changes (who changed what, when)",
+    path: "D1 (a simple append-only changes table)",
+    detail: "Cheap insurance once more than one person has write access -- makes it trivial to answer 'who deleted that image' without guessing."
+  },
+  {
+    id: "upload-image-optimization",
+    title: "Automatic image optimization on upload (resize + WebP conversion)",
+    path: "Admin Worker upload handler, or Cloudflare Images as a paid add-on",
+    detail: "The public site's images were manually compressed/converted to WebP in several rounds (see docs/vulnerabilities-and-roadmap.html). Doing this automatically at upload time would keep every future gallery image consistently optimized without a manual pass."
+  }
+];
+
+function cardHTML(item, idPrefix, badgeClass, badgeText, checked) {
+  return `
+    <label class="step-card ${checked ? "done" : ""} flex items-start gap-3 bg-white rounded-xl border border-stone-200 shadow-sm p-4 cursor-pointer hover:border-stone-300 transition-colors" data-id="${idPrefix}${item.id}">
+      <input type="checkbox" class="mt-1.5 w-4 h-4 accent-blue-600 shrink-0" ${checked ? "checked" : ""} />
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full ${badgeClass}">${badgeText}</span>
+          <span class="text-xs text-stone-400">${item.path}</span>
+        </div>
+        <p class="step-title font-medium text-stone-800">${item.title}</p>
+        <p class="text-sm text-stone-500 mt-1 leading-relaxed">${item.detail}</p>
+      </div>
+    </label>`;
+}
+
+function renderChecklist(containerId, items, idPrefix, badgeClass, badgeText) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = items
+    .map((item) => cardHTML(item, idPrefix, badgeClass, badgeText, localStorage.getItem(idPrefix + item.id) === "true"))
+    .join("");
+  container.querySelectorAll(".step-card").forEach((card) => {
+    const checkbox = card.querySelector("input");
+    checkbox.addEventListener("change", () => {
+      localStorage.setItem(card.dataset.id, checkbox.checked);
+      card.classList.toggle("done", checkbox.checked);
+      updateProgress();
+    });
+  });
+}
+
+function updateProgress() {
+  const boxes = document.querySelectorAll("#checklist-phase1 input[type=checkbox], #checklist-decision input[type=checkbox]");
+  const total = boxes.length;
+  const checked = Array.from(boxes).filter((b) => b.checked).length;
+  document.getElementById("progress-label").textContent = `${checked} / ${total}`;
+  document.getElementById("progress-bar").style.width = total ? `${(checked / total) * 100}%` : "0%";
+}
+
+renderChecklist("checklist-phase1", phase1Items, "admin-phase1-", "badge-phase1", "PHASE 1");
+renderChecklist("checklist-decision", decisionItems, "admin-decision-", "badge-decision", "DECISION NEEDED");
+renderChecklist("checklist-phase2", phase2Items, "admin-phase2-", "badge-phase2", "PHASE 2+");
+updateProgress();
+</script>
+</body>
+</html>

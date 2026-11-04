@@ -32,6 +32,31 @@ const REPO = "ybosemahasaya/kriyayogamission";
 const BRANCH = "dev";
 const MARKER_PATH = ".admin-sync-trigger";
 
+// Observed in production: api.github.com occasionally comes back as a
+// Cloudflare-synthesized 525 ("SSL Handshake Failed") for Workers'
+// outbound fetch() -- a transient edge<->GitHub connectivity hiccup, not
+// a real GitHub response (GitHub itself always replies with a JSON body
+// and a normal 4xx for auth/permission problems). Retrying a couple of
+// times with a short backoff is the standard fix for this class of error.
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status < 500 || attempt === attempts) return res;
+      console.error(`[DEPLOY HOOK] GitHub returned ${res.status} (attempt ${attempt}/${attempts}), retrying...`);
+    } catch (err) {
+      lastError = err;
+      if (attempt === attempts) throw err;
+      console.error(`[DEPLOY HOOK] GitHub request threw (attempt ${attempt}/${attempts}), retrying...`, err);
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+  }
+  // Unreachable in practice (the loop always returns or throws on the
+  // last attempt), but keeps TypeScript happy about the return type.
+  throw lastError ?? new Error("fetchWithRetry exhausted attempts");
+}
+
 export async function triggerDevRebuild(env: Env): Promise<void> {
   if (!env.GITHUB_PAT) return;
 
@@ -46,10 +71,10 @@ export async function triggerDevRebuild(env: Env): Promise<void> {
     // Updating an existing file requires its current sha; creating a new
     // one doesn't. Look it up first and fall back to "create" if it
     // doesn't exist yet (first run).
-    const getRes = await fetch(`${apiUrl}?ref=${BRANCH}`, { headers });
+    const getRes = await fetchWithRetry(`${apiUrl}?ref=${BRANCH}`, { headers });
     const sha = getRes.ok ? (await getRes.json<{ sha: string }>()).sha : undefined;
 
-    const putRes = await fetch(apiUrl, {
+    const putRes = await fetchWithRetry(apiUrl, {
       method: "PUT",
       headers: { ...headers, "content-type": "application/json" },
       body: JSON.stringify({

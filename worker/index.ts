@@ -1,4 +1,4 @@
-import { handleGalleryRequest } from "./api/gallery";
+import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
 import { handlePublicGalleryRequest } from "./api/public-gallery";
 import { errorResponse } from "./lib/http";
@@ -31,6 +31,18 @@ export default {
         return await handleImageRequest(env, imageMatch[1]);
       } catch (err) {
         console.error("Image serving error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    // Bulk select-and-act (edit many / delete many at once from the admin
+    // UI). Checked before the generic :id matcher below -- otherwise
+    // "bulk" would be parsed as an image id instead of routing here.
+    if (url.pathname === "/api/gallery/bulk" && (request.method === "PATCH" || request.method === "DELETE")) {
+      try {
+        return await handleBulkGalleryRequest(request, env, ctx);
+      } catch (err) {
+        console.error("Bulk gallery API error:", err);
         return errorResponse("Internal server error", 500);
       }
     }

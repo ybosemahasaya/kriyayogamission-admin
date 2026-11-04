@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { listImages } from "./api/gallery";
+import { bulkDeleteImages, listImages } from "./api/gallery";
+import { BulkActionBar } from "./components/BulkActionBar";
+import { BulkEditModal } from "./components/BulkEditModal";
 import { EditImageModal } from "./components/EditImageModal";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { Modal } from "./components/Modal";
@@ -24,6 +26,8 @@ function App() {
 
   const [showUpload, setShowUpload] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImageDTO | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
 
@@ -38,6 +42,31 @@ function App() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // A selection made under one filter (e.g. "Drafts" tab) stops making
+  // sense once the filter changes and different photos are on screen --
+  // clear it rather than silently acting on photos the admin can no
+  // longer see.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [tab, categoryFilter, search]);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedIds.size;
+    if (!window.confirm(`Delete ${count} selected photo${count === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    await bulkDeleteImages([...selectedIds]);
+    setSelectedIds(new Set());
+    refresh();
+  }
 
   const filteredImages = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -107,6 +136,13 @@ function App() {
           </button>
         </div>
 
+        <BulkActionBar
+          count={selectedIds.size}
+          onBulkEdit={() => setShowBulkEdit(true)}
+          onBulkDelete={handleBulkDelete}
+          onClear={() => setSelectedIds(new Set())}
+        />
+
         {loading && <p className="empty-state">Loading...</p>}
         {error && <p className="form-error">{error}</p>}
         {!loading && !error && (
@@ -119,6 +155,8 @@ function App() {
             }
             onChanged={refresh}
             onEdit={setEditingImage}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
           />
         )}
       </main>
@@ -142,6 +180,21 @@ function App() {
               setEditingImage(null);
               refresh();
             }}
+          />
+        </Modal>
+      )}
+
+      {showBulkEdit && (
+        <Modal title="Edit selected photos" onClose={() => setShowBulkEdit(false)}>
+          <BulkEditModal
+            count={selectedIds.size}
+            imageIds={[...selectedIds]}
+            onSaved={() => {
+              setShowBulkEdit(false);
+              setSelectedIds(new Set());
+              refresh();
+            }}
+            onCancel={() => setShowBulkEdit(false)}
           />
         </Modal>
       )}

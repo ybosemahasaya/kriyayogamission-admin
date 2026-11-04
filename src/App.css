@@ -265,6 +265,33 @@
   background: var(--media-bg);
 }
 
+.card-select {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 7, 0.75);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.card-select input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.gallery-card-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
 .card-media img {
   width: 100%;
   height: 100%;
@@ -275,7 +302,9 @@
 .card-category-badge {
   position: absolute;
   top: 0.6rem;
-  left: 0.6rem;
+  /* Shifted right from the usual 0.6rem so it never overlaps the
+     selection checkbox, which now lives in this same top-left corner. */
+  left: 2.6rem;
   background: rgba(10, 8, 7, 0.75);
   backdrop-filter: blur(4px);
   color: var(--text-primary);
@@ -456,4 +485,144 @@
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--border);
+}
+
+/* ---------- Bulk selection ---------- */
+
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.bulk-action-count {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-danger-outline:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.5rem 0.25rem;
+}
+
+.bulk-edit-summary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.modal-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+/* ---------- Multi-file upload batch list ---------- */
+
+.upload-batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.upload-batch-item {
+  display: grid;
+  grid-template-columns: 48px 1fr auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+
+.upload-batch-item-done {
+  border-color: var(--accent);
+}
+
+.upload-batch-item-error {
+  border-color: var(--danger);
+}
+
+.upload-batch-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.upload-batch-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.upload-batch-fields input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.upload-batch-fields .form-error {
+  font-size: 0.75rem;
+}
+
+.upload-batch-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.upload-batch-item-done .upload-batch-status {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.upload-batch-item-error .upload-batch-status {
+  color: var(--danger);
+  font-weight: 600;
 }

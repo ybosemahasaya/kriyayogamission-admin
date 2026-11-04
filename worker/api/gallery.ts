@@ -47,6 +47,106 @@ export async function handleGalleryRequest(
   }
 }
 
+// Admin panel supports selecting many photos at once and bulk-editing or
+// bulk-deleting them. This is deliberately a separate endpoint rather than
+// the frontend firing N individual PATCH/DELETE requests, for two reasons:
+// (1) one DB statement instead of N round trips, and (2) each gallery
+// mutation schedules a Cloudflare Deploy Hook call (see deploy-hook.ts),
+// which is rate-limited to 10/minute per Worker -- firing N of those for
+// one bulk action would risk silently dropping the dev rebuild trigger for
+// a batch larger than that.
+const MAX_BULK_IDS = 200; // generous for this gallery's realistic size; just a sanity cap
+
+export async function handleBulkGalleryRequest(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const bindingError = requireBindings(env);
+  if (bindingError) return bindingError;
+
+  switch (request.method) {
+    case "PATCH":
+      return bulkUpdate(request, env, ctx);
+    case "DELETE":
+      return bulkRemove(request, env, ctx);
+    default:
+      return errorResponse("Method not allowed", 405);
+  }
+}
+
+function parseBulkIds(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  if (value.length > MAX_BULK_IDS) return null;
+  if (!value.every((v) => typeof v === "string" && v.length > 0)) return null;
+  return value;
+}
+
+async function bulkUpdate(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const body = await request.json<{
+    ids?: unknown;
+    patch?: Partial<{ category: string; published: boolean }>;
+  }>();
+
+  const ids = parseBulkIds(body.ids);
+  if (!ids) return errorResponse(`ids must be a non-empty array of up to ${MAX_BULK_IDS} strings`);
+
+  const patch = body.patch;
+  if (!patch || Object.keys(patch).length === 0) return errorResponse("patch must include at least one field");
+
+  // Bulk edit intentionally only supports fields that make sense applied
+  // uniformly across many *different* photos -- category and published
+  // status. Caption/alt text describe one specific image and should stay
+  // per-photo; see EditImageModal for those.
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  if (patch.category !== undefined) {
+    if (!isGalleryCategory(patch.category)) {
+      return errorResponse(`Category must be one of: ${GALLERY_CATEGORIES.join(", ")}`);
+    }
+    updates.push("category = ?");
+    values.push(patch.category);
+  }
+  if (patch.published !== undefined) {
+    updates.push("published = ?");
+    values.push(patch.published ? 1 : 0);
+  }
+  if (updates.length === 0) return errorResponse("Bulk edit only supports category and published");
+
+  const placeholders = ids.map(() => "?").join(", ");
+  const result = await env.DB!.prepare(
+    `UPDATE gallery_images SET ${updates.join(", ")} WHERE id IN (${placeholders})`,
+  )
+    .bind(...values, ...ids)
+    .run();
+
+  ctx.waitUntil(triggerDevRebuild(env));
+  return json({ updated: result.meta.changes });
+}
+
+async function bulkRemove(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const body = await request.json<{ ids?: unknown }>();
+  const ids = parseBulkIds(body.ids);
+  if (!ids) return errorResponse(`ids must be a non-empty array of up to ${MAX_BULK_IDS} strings`);
+
+  const placeholders = ids.map(() => "?").join(", ");
+  const { results } = await env.DB!.prepare(
+    `SELECT id, r2_key FROM gallery_images WHERE id IN (${placeholders})`,
+  )
+    .bind(...ids)
+    .all<{ id: string; r2_key: string }>();
+
+  await Promise.all(results.map((row) => env.GALLERY_BUCKET!.delete(row.r2_key)));
+  if (results.length > 0) {
+    await env.DB!.prepare(`DELETE FROM gallery_images WHERE id IN (${placeholders})`)
+      .bind(...ids)
+      .run();
+  }
+
+  ctx.waitUntil(triggerDevRebuild(env));
+  return json({ deleted: results.length });
+}
+
 async function listAll(env: Env): Promise<Response> {
   const { results } = await env.DB!.prepare(
     "SELECT * FROM gallery_images ORDER BY display_order ASC, created_at DESC",

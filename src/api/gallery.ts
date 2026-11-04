@@ -43,3 +43,24 @@ export function updateImage(
 export function deleteImage(id: string): Promise<null> {
   return fetch(`${BASE}/${id}`, { method: "DELETE" }).then(parseOrThrow);
 }
+
+/** Applied uniformly to many photos at once -- see worker/api/gallery.ts
+ * for why this only supports category + published, not caption/altText. */
+export function bulkUpdateImages(
+  ids: string[],
+  patch: Partial<Pick<GalleryImageDTO, "category" | "published">>,
+): Promise<{ updated: number }> {
+  return fetch(`${BASE}/bulk`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ids, patch }),
+  }).then(parseOrThrow);
+}
+
+export function bulkDeleteImages(ids: string[]): Promise<{ deleted: number }> {
+  return fetch(`${BASE}/bulk`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ids }),
+  }).then(parseOrThrow);
+}

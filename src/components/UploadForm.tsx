@@ -1,99 +1,173 @@
 import { useState } from "react";
 import { GALLERY_CATEGORIES, type GalleryCategory } from "../../shared/gallery-categories";
 import { uploadImage } from "../api/gallery";
+import { TrashIcon } from "./icons";
 
 interface Props {
   onUploaded: () => void;
 }
 
-const emptyState = {
-  category: GALLERY_CATEGORIES[0] as GalleryCategory,
-  caption: "",
-  altText: "",
-};
+type UploadStatus = "pending" | "uploading" | "done" | "error";
 
+interface PendingFile {
+  key: string; // stable React key, independent of file name collisions
+  file: File;
+  preview: string;
+  caption: string;
+  altText: string;
+  status: UploadStatus;
+  error?: string;
+}
+
+function toPendingFile(file: File): PendingFile {
+  return {
+    key: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+    file,
+    preview: URL.createObjectURL(file),
+    caption: "",
+    altText: "",
+    status: "pending",
+  };
+}
+
+/** One shared category applies to the whole batch -- matches "upload for
+ * a category" -- but caption/alt text stay per-photo since they describe
+ * one specific image each. Alt text is still required per-photo for
+ * accessibility; there's no safe generic default to fall back to. */
 export function UploadForm({ onUploaded }: Props) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyState);
+  const [category, setCategory] = useState<GalleryCategory>(GALLERY_CATEGORIES[0]);
+  const [files, setFiles] = useState<PendingFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = e.target.files?.[0] ?? null;
-    setFile(picked);
-    setPreview(picked ? URL.createObjectURL(picked) : null);
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+    setFiles((prev) => [...prev, ...picked.map(toPendingFile)]);
+    e.target.value = ""; // allow picking the same file again after removing it
+  }
+
+  function updateFile(key: string, patch: Partial<PendingFile>) {
+    setFiles((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  }
+
+  function removeFile(key: string) {
+    setFiles((prev) => {
+      const target = prev.find((f) => f.key === key);
+      if (target) URL.revokeObjectURL(target.preview);
+      return prev.filter((f) => f.key !== key);
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) {
-      setError("Choose an image file first.");
+    setFormError(null);
+
+    if (files.length === 0) {
+      setFormError("Choose at least one image file.");
       return;
     }
+    if (files.some((f) => !f.altText.trim())) {
+      setFormError("Every photo needs alt text before it can be uploaded.");
+      return;
+    }
+
     setSubmitting(true);
-    setError(null);
-    try {
-      await uploadImage({ file, ...form });
-      setFile(null);
-      setPreview(null);
-      setForm(emptyState);
+
+    // Sequential, not parallel: each successful upload schedules a
+    // Cloudflare Deploy Hook call (see worker/lib/deploy-hook.ts), and
+    // firing a dozen of those in a tight burst risks tripping its
+    // per-minute rate limit. Slower, but every upload's trigger lands.
+    let anyFailed = false;
+    for (const f of files) {
+      if (f.status === "done") continue; // allow retrying just the failed ones
+      updateFile(f.key, { status: "uploading", error: undefined });
+      try {
+        await uploadImage({ file: f.file, category, caption: f.caption, altText: f.altText });
+        updateFile(f.key, { status: "done" });
+      } catch (err) {
+        anyFailed = true;
+        updateFile(f.key, { status: "error", error: err instanceof Error ? err.message : "Upload failed." });
+      }
+    }
+
+    setSubmitting(false);
+    if (!anyFailed) {
+      files.forEach((f) => URL.revokeObjectURL(f.preview));
       onUploaded();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
-    } finally {
-      setSubmitting(false);
+    } else {
+      setFormError("Some photos failed to upload -- fix them below and submit again. Successful ones won't re-upload.");
     }
   }
 
   return (
     <form className="modal-form" onSubmit={handleSubmit}>
       <label className="field">
-        <span>Image file</span>
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} />
-      </label>
-
-      {preview && <img className="upload-preview" src={preview} alt="Preview of selected upload" />}
-
-      <label className="field">
-        <span>Category</span>
-        <select
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value as GalleryCategory })}
-        >
-          {GALLERY_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category}
+        <span>Category (applies to all photos in this batch)</span>
+        <select value={category} onChange={(e) => setCategory(e.target.value as GalleryCategory)}>
+          {GALLERY_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
             </option>
           ))}
         </select>
       </label>
 
       <label className="field">
-        <span>Caption</span>
-        <input
-          type="text"
-          value={form.caption}
-          onChange={(e) => setForm({ ...form, caption: e.target.value })}
-          placeholder="Shown under the photo on the public gallery"
-        />
+        <span>Image files (select multiple to upload at once)</span>
+        <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFileChange} />
       </label>
 
-      <label className="field">
-        <span>Alt text (required, for accessibility)</span>
-        <input
-          type="text"
-          value={form.altText}
-          onChange={(e) => setForm({ ...form, altText: e.target.value })}
-          placeholder="Describe the photo for screen readers"
-          required
-        />
-      </label>
+      {files.length > 0 && (
+        <div className="upload-batch-list">
+          {files.map((f) => (
+            <div key={f.key} className={`upload-batch-item upload-batch-item-${f.status}`}>
+              <img className="upload-batch-thumb" src={f.preview} alt="" />
+              <div className="upload-batch-fields">
+                <input
+                  type="text"
+                  value={f.caption}
+                  placeholder="Caption (optional)"
+                  disabled={f.status === "uploading" || f.status === "done"}
+                  onChange={(e) => updateFile(f.key, { caption: e.target.value })}
+                />
+                <input
+                  type="text"
+                  value={f.altText}
+                  placeholder="Alt text (required)"
+                  required
+                  disabled={f.status === "uploading" || f.status === "done"}
+                  onChange={(e) => updateFile(f.key, { altText: e.target.value })}
+                />
+                {f.status === "error" && <p className="form-error">{f.error}</p>}
+              </div>
+              <span className="upload-batch-status" aria-label={f.status}>
+                {f.status === "uploading" && "Uploading..."}
+                {f.status === "done" && "Done"}
+                {f.status === "error" && "Failed"}
+              </span>
+              <button
+                type="button"
+                className="icon-btn icon-btn-danger"
+                title="Remove from batch"
+                onClick={() => removeFile(f.key)}
+                disabled={f.status === "uploading"}
+              >
+                <TrashIcon />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {error && <p className="form-error">{error}</p>}
+      {formError && <p className="form-error">{formError}</p>}
 
-      <button type="submit" className="btn-primary" disabled={submitting}>
-        {submitting ? "Uploading..." : "Upload"}
+      <button type="submit" className="btn-primary" disabled={submitting || files.length === 0}>
+        {submitting
+          ? "Uploading..."
+          : files.length > 1
+            ? `Upload ${files.length} photos`
+            : "Upload"}
       </button>
     </form>
   );

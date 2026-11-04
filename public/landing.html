@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Kriya Yoga Mission — Admin Sign In</title>
+    <!--
+      Deliberately self-contained: no external stylesheet, no script, no
+      image requests besides the inline SVG mark below. This page has to
+      render for visitors with zero Cloudflare Access session yet, so it
+      must work even if nothing else on this origin is reachable to them.
+      Colors are copied from src/index.css's dark theme (:root) so this
+      matches the rest of the admin panel exactly -- this file can't
+      import that CSS since it's served outside the Vite/React build.
+    -->
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: #121010;
+        color: #f5efe6;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      .card {
+        display: flex;
+        width: 100%;
+        max-width: 720px;
+        background: #191613;
+        border: 1px solid #2d2722;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      .card-panel {
+        flex: 1;
+        padding: 2.75rem 2.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 1rem;
+      }
+
+      .card-panel + .card-panel {
+        border-left: 1px solid #2d2722;
+        align-items: flex-start;
+        text-align: left;
+      }
+
+      .brand-mark {
+        width: 64px;
+        height: 64px;
+      }
+
+      .brand-mark path {
+        fill: #f97316;
+      }
+
+      .brand-name {
+        margin: 0;
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+      }
+
+      .brand-sub {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #a89c8f;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      .lede {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #a89c8f;
+        line-height: 1.5;
+      }
+
+      .signin-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        background: #f97316;
+        color: #1c1917;
+        font-weight: 700;
+        font-size: 0.95rem;
+        text-decoration: none;
+        transition: background-color 0.15s;
+      }
+
+      .signin-btn:hover,
+      .signin-btn:focus-visible {
+        background: #fb923c;
+      }
+
+      .signin-btn:focus-visible {
+        outline: 2px solid #f5efe6;
+        outline-offset: 2px;
+      }
+
+      .fine-print {
+        margin: 0.75rem 0 0;
+        font-size: 0.75rem;
+        color: #766a5e;
+      }
+
+      @media (max-width: 560px) {
+        .card {
+          flex-direction: column;
+        }
+
+        .card-panel + .card-panel {
+          border-left: none;
+          border-top: 1px solid #2d2722;
+          align-items: center;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <section class="card-panel">
+        <!-- Same mark as public/favicon.svg, inlined so this page needs
+             zero authenticated asset requests. -->
+        <svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128" aria-hidden="true">
+          <path d="M50.4 78.5a75.1 75.1 0 0 0-28.5 6.9l24.2-65.7c.7-2 1.9-3.2 3.4-3.2h29c1.5 0 2.7 1.2 3.4 3.2l24.2 65.7s-11.6-7-28.5-7L67 45.5c-.4-1.7-1.6-2.8-2.9-2.8-1.3 0-2.5 1.1-2.9 2.7L50.4 78.5Zm-1.1 28.2Zm-4.2-20.2c-2 6.6-.6 15.8 4.2 20.2a17.5 17.5 0 0 1 .2-.7 5.5 5.5 0 0 1 5.7-4.5c2.8.1 4.3 1.5 4.7 4.7.2 1.1.2 2.3.2 3.5v.4c0 2.7.7 5.2 2.2 7.4a13 13 0 0 0 5.7 4.9v-.3l-.2-.3c-1.8-5.6-.5-9.5 4.4-12.8l1.5-1a73 73 0 0 0 3.2-2.2 16 16 0 0 0 6.8-11.4c.3-2 .1-4-.6-6l-.8.6-1.6 1a37 37 0 0 1-22.4 2.7c-5-.7-9.7-2-13.2-6.2Z" />
+        </svg>
+        <p class="brand-name">Kriya Yoga Mission</p>
+        <p class="brand-sub">Admin Panel</p>
+      </section>
+
+      <section class="card-panel">
+        <h1>Sign in to continue</h1>
+        <p class="lede">
+          This console manages the photo gallery shown on the public Kriya Yoga Mission website. Access is
+          restricted to approved team members.
+        </p>
+        <a class="signin-btn" href="/app">Continue to Sign In</a>
+        <p class="fine-print">You'll be asked to verify your email on the next step.</p>
+      </section>
+    </main>
+  </body>
+</html>

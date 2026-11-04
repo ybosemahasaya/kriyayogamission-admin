@@ -603,21 +603,13 @@
 
 .upload-batch-item {
   display: grid;
-  grid-template-columns: 48px 1fr auto auto;
+  grid-template-columns: 48px 1fr auto;
   align-items: center;
   gap: 0.6rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.5rem;
-}
-
-.upload-batch-item-done {
-  border-color: var(--accent);
-}
-
-.upload-batch-item-error {
-  border-color: var(--danger);
 }
 
 .upload-batch-thumb {
@@ -644,22 +636,97 @@
   font-size: 0.82rem;
 }
 
-.upload-batch-fields .form-error {
-  font-size: 0.75rem;
+/* ---------- Upload progress panel ---------- */
+
+.upload-progress-panel {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 340px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+  z-index: 60;
 }
 
-.upload-batch-status {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.upload-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.7rem;
+}
+
+.upload-progress-overall-bar {
+  height: 6px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.9rem;
+}
+
+.upload-progress-overall-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.upload-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.upload-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.upload-progress-filename {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.upload-batch-item-done .upload-batch-status {
+.upload-progress-bar {
+  height: 4px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}
+
+.upload-progress-item-error .upload-progress-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+}
+
+.upload-progress-percent {
+  align-self: flex-end;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.upload-progress-item-done .upload-progress-percent {
   color: var(--accent);
   font-weight: 600;
 }
 
-.upload-batch-item-error .upload-batch-status {
+.upload-progress-item-error .upload-progress-percent {
   color: var(--danger);
   font-weight: 600;
 }

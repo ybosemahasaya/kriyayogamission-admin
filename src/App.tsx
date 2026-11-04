@@ -7,8 +7,10 @@ import { GalleryGrid } from "./components/GalleryGrid";
 import { Modal } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { UploadForm } from "./components/UploadForm";
+import { UploadProgressPanel } from "./components/UploadProgressPanel";
 import { PlusIcon, SearchIcon } from "./components/icons";
 import { useTheme } from "./hooks/useTheme";
+import { useUploadQueue, type QueuedUpload } from "./hooks/useUploadQueue";
 import { GALLERY_CATEGORIES, type GalleryCategory } from "../shared/gallery-categories";
 import type { GalleryImageDTO } from "../shared/gallery-image";
 import "./App.css";
@@ -42,6 +44,16 @@ function App() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Refresh after each individual upload settles (not just at the end of
+  // the whole batch) so photos appear in the grid progressively as they
+  // land, instead of all at once after a potentially long batch finishes.
+  const uploadQueue = useUploadQueue(refresh);
+
+  function handleStartUpload(items: QueuedUpload[]) {
+    uploadQueue.enqueue(items);
+    setShowUpload(false);
+  }
 
   // A selection made under one filter (e.g. "Drafts" tab) stops making
   // sense once the filter changes and different photos are on screen --
@@ -163,12 +175,7 @@ function App() {
 
       {showUpload && (
         <Modal title="Add photo" onClose={() => setShowUpload(false)}>
-          <UploadForm
-            onUploaded={() => {
-              setShowUpload(false);
-              refresh();
-            }}
-          />
+          <UploadForm onStartUpload={handleStartUpload} />
         </Modal>
       )}
 
@@ -198,6 +205,8 @@ function App() {
           />
         </Modal>
       )}
+
+      <UploadProgressPanel items={uploadQueue.items} onDismiss={uploadQueue.dismiss} />
     </div>
   );
 }

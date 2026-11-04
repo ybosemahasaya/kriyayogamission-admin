@@ -20,13 +20,40 @@ export interface UploadImageInput {
   altText: string;
 }
 
-export function uploadImage(input: UploadImageInput): Promise<{ id: string }> {
+export function uploadImage(input: UploadImageInput, onProgress?: (percent: number) => void): Promise<{ id: string }> {
   const form = new FormData();
   form.set("file", input.file);
   form.set("category", input.category);
   form.set("caption", input.caption);
   form.set("altText", input.altText);
-  return fetch(BASE, { method: "POST", body: form }).then(parseOrThrow);
+
+  // fetch() has no way to report upload progress -- the Fetch API simply
+  // doesn't expose it. XMLHttpRequest's upload.onprogress is the only
+  // standard browser API that gives real loaded/total byte counts during
+  // an upload, so it's used here specifically to drive the progress bars
+  // in UploadProgressPanel.
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", BASE);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      let body: { id?: string; error?: string } | null = null;
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        body = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body?.id) {
+        resolve({ id: body.id });
+      } else {
+        reject(new Error(body?.error ?? `Request failed with ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload."));
+    xhr.send(form);
+  });
 }
 
 export function updateImage(

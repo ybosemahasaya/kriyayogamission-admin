@@ -18,10 +18,13 @@ export interface Env {
   ASSETS: Fetcher;
   GALLERY_BUCKET?: R2Bucket;
   DB?: D1Database;
-  /** Fine-grained GitHub PAT, Contents: read-write, scoped to ONLY the
-   * kriyayogamission repo. Used to auto-trigger a dev rebuild after
-   * gallery changes; see worker/lib/deploy-hook.ts. Unset until created. */
-  GITHUB_PAT?: string;
+  /** Cloudflare Workers Builds "Deploy Hook" URL for the kriyayogamission-dev
+   * project's `dev` branch. Posting to this URL (no auth needed -- the URL
+   * itself is the credential) starts a new build/deploy, same as a human
+   * pushing a commit. Used to auto-trigger a dev rebuild after gallery
+   * changes; see worker/lib/deploy-hook.ts. Dev-only by design: there is
+   * deliberately no production equivalent configured. */
+  DEPLOY_HOOK_URL?: string;
 }
 
 export interface GalleryImageRow {

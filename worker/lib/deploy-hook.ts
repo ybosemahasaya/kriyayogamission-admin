@@ -6,106 +6,43 @@ import type { Env } from "../types";
  * automatically instead of requiring someone to remember to manually
  * rebuild.
  *
- * Why a GitHub commit instead of a Cloudflare deploy hook: Cloudflare
- * Workers Builds (the Git integration for plain Workers projects, which
- * is what kriyayogamission-dev actually is) doesn't expose a public
- * webhook URL to externally trigger a rebuild the way Cloudflare Pages'
- * "Deploy Hooks" do -- that was tried and nothing showed up in the
- * deployment history. What *is* proven to reliably trigger a rebuild,
- * dozens of times over in this project's history, is a plain `git push`
- * to the dev branch. So instead of guessing at another uncertain
- * dashboard feature, this does the same thing a human push does: makes a
- * tiny automated commit via the GitHub API, touching one marker file.
- * Cloudflare's existing push-triggered build picks it up exactly like any
- * other commit.
+ * History: this used to fake a `git push` by committing a marker file to
+ * the public repo's `dev` branch via the GitHub Contents API, using a
+ * GITHUB_PAT. That approach was abandoned after proving it structurally
+ * broken in production -- *every* call to api.github.com from this
+ * Worker, including a bare unauthenticated GET to api.github.com/zen,
+ * came back as a Cloudflare-synthesized 525 ("SSL Handshake Failed").
+ * Retries didn't help because the failure was 100% reproducible across
+ * multiple Cloudflare colos and timestamps -- a domain-wide
+ * Workers<->github.com connectivity problem, not anything fixable in our
+ * request code.
  *
- * Deliberately dev-only for now (see docs/admin-panel-architecture.html --
- * the "reflect on dev only, not production" restriction is explicit and
- * temporary). GITHUB_PAT is unset until that token is created and added
- * as a secret; until then this is a silent no-op so gallery CRUD keeps
+ * Current approach: Cloudflare Workers Builds has its own "Deploy Hooks"
+ * feature (Settings -> Builds -> Deploy Hooks on the kriyayogamission-dev
+ * project), scoped to the `dev` branch. Posting to that URL starts a
+ * build directly -- a Cloudflare-to-Cloudflare call that never touches
+ * GitHub's API at all, so the 525 problem is structurally impossible
+ * here. No auth header needed; the URL itself is the credential (treated
+ * like a secret, stored as DEPLOY_HOOK_URL).
+ *
+ * Deliberately dev-only: no production Deploy Hook is configured, and
+ * this code has no path to one. See docs/admin-panel-architecture.html.
+ * DEPLOY_HOOK_URL is a silent no-op if unset, so gallery CRUD keeps
  * working even without it configured.
  *
- * Call via ctx.waitUntil() so a slow/failed GitHub request never delays
- * or breaks the actual API response to the admin UI.
+ * Call via ctx.waitUntil() so a slow/failed deploy hook request never
+ * delays or breaks the actual API response to the admin UI.
  */
-const REPO = "ybosemahasaya/kriyayogamission";
-const BRANCH = "dev";
-const MARKER_PATH = ".admin-sync-trigger";
-
-// Observed in production: api.github.com occasionally comes back as a
-// Cloudflare-synthesized 525 ("SSL Handshake Failed") for Workers'
-// outbound fetch() -- a transient edge<->GitHub connectivity hiccup, not
-// a real GitHub response (GitHub itself always replies with a JSON body
-// and a normal 4xx for auth/permission problems). Retrying a couple of
-// times with a short backoff is the standard fix for this class of error.
-async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      const res = await fetch(url, init);
-      if (res.status < 500 || attempt === attempts) return res;
-      console.error(`[DEPLOY HOOK] GitHub returned ${res.status} (attempt ${attempt}/${attempts}), retrying...`);
-    } catch (err) {
-      lastError = err;
-      if (attempt === attempts) throw err;
-      console.error(`[DEPLOY HOOK] GitHub request threw (attempt ${attempt}/${attempts}), retrying...`, err);
-    }
-    await new Promise((resolve) => setTimeout(resolve, attempt * 300));
-  }
-  // Unreachable in practice (the loop always returns or throws on the
-  // last attempt), but keeps TypeScript happy about the return type.
-  throw lastError ?? new Error("fetchWithRetry exhausted attempts");
-}
-
-// One-time diagnostic: a bare, unauthenticated hit to GitHub's trivial
-// "zen" endpoint. If even this fails with a 525, the problem is
-// domain-wide Workers<->github.com connectivity, not anything about our
-// specific token, repo, or request shape -- useful to tell those two
-// failure modes apart from the Worker's own logs without guesswork.
-async function logGithubReachability(): Promise<void> {
-  try {
-    const res = await fetch("https://api.github.com/zen");
-    console.error(`[DEPLOY HOOK] reachability check: api.github.com/zen -> ${res.status}`);
-  } catch (err) {
-    console.error("[DEPLOY HOOK] reachability check: api.github.com/zen threw:", err);
-  }
-}
-
 export async function triggerDevRebuild(env: Env): Promise<void> {
-  if (!env.GITHUB_PAT) return;
-
-  await logGithubReachability();
-
-  const apiUrl = `https://api.github.com/repos/${REPO}/contents/${MARKER_PATH}`;
-  const headers = {
-    Authorization: `Bearer ${env.GITHUB_PAT}`,
-    Accept: "application/vnd.github+json",
-    "User-Agent": "kriyayogamission-admin-worker",
-  };
+  if (!env.DEPLOY_HOOK_URL) return;
 
   try {
-    // Updating an existing file requires its current sha; creating a new
-    // one doesn't. Look it up first and fall back to "create" if it
-    // doesn't exist yet (first run).
-    const getRes = await fetchWithRetry(`${apiUrl}?ref=${BRANCH}`, { headers });
-    const sha = getRes.ok ? (await getRes.json<{ sha: string }>()).sha : undefined;
-
-    const putRes = await fetchWithRetry(apiUrl, {
-      method: "PUT",
-      headers: { ...headers, "content-type": "application/json" },
-      body: JSON.stringify({
-        message: "chore: trigger dev rebuild (admin panel gallery change)",
-        content: btoa(new Date().toISOString()),
-        branch: BRANCH,
-        ...(sha ? { sha } : {}),
-      }),
-    });
-
-    if (!putRes.ok) {
-      const text = await putRes.text().catch(() => "");
-      console.error(`[DEPLOY HOOK] GitHub commit failed: ${putRes.status} ${text}`);
+    const res = await fetch(env.DEPLOY_HOOK_URL, { method: "POST" });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[DEPLOY HOOK] Deploy hook request failed: ${res.status} ${text}`);
     }
   } catch (err) {
-    console.error("[DEPLOY HOOK] GitHub commit request threw:", err);
+    console.error("[DEPLOY HOOK] Deploy hook request threw:", err);
   }
 }

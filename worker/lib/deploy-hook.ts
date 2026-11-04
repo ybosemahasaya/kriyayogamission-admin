@@ -57,8 +57,24 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Pro
   throw lastError ?? new Error("fetchWithRetry exhausted attempts");
 }
 
+// One-time diagnostic: a bare, unauthenticated hit to GitHub's trivial
+// "zen" endpoint. If even this fails with a 525, the problem is
+// domain-wide Workers<->github.com connectivity, not anything about our
+// specific token, repo, or request shape -- useful to tell those two
+// failure modes apart from the Worker's own logs without guesswork.
+async function logGithubReachability(): Promise<void> {
+  try {
+    const res = await fetch("https://api.github.com/zen");
+    console.error(`[DEPLOY HOOK] reachability check: api.github.com/zen -> ${res.status}`);
+  } catch (err) {
+    console.error("[DEPLOY HOOK] reachability check: api.github.com/zen threw:", err);
+  }
+}
+
 export async function triggerDevRebuild(env: Env): Promise<void> {
   if (!env.GITHUB_PAT) return;
+
+  await logGithubReachability();
 
   const apiUrl = `https://api.github.com/repos/${REPO}/contents/${MARKER_PATH}`;
   const headers = {

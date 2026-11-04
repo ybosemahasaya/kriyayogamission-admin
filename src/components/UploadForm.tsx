@@ -37,8 +37,20 @@ function toPendingFile(file: File): PendingFile {
 export function UploadForm({ onUploaded }: Props) {
   const [category, setCategory] = useState<GalleryCategory>(GALLERY_CATEGORIES[0]);
   const [files, setFiles] = useState<PendingFile[]>([]);
+  const [quickCaption, setQuickCaption] = useState("");
+  const [quickAltText, setQuickAltText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  function applyQuickFillToAll() {
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.status === "uploading" || f.status === "done"
+          ? f
+          : { ...f, caption: quickCaption, altText: quickAltText },
+      ),
+    );
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -117,6 +129,32 @@ export function UploadForm({ onUploaded }: Props) {
         <span>Image files (select multiple to upload at once)</span>
         <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFileChange} />
       </label>
+
+      {files.length > 1 && (
+        <div className="quick-fill">
+          <p className="quick-fill-label">Fill every photo below at once (still editable per-photo after):</p>
+          <input
+            type="text"
+            value={quickCaption}
+            placeholder="Caption to apply to all"
+            onChange={(e) => setQuickCaption(e.target.value)}
+          />
+          <input
+            type="text"
+            value={quickAltText}
+            placeholder="Alt text to apply to all"
+            onChange={(e) => setQuickAltText(e.target.value)}
+          />
+          <button type="button" className="btn-secondary" onClick={applyQuickFillToAll}>
+            Apply to all
+          </button>
+          <p className="quick-fill-warning">
+            Heads up: identical alt text on different photos makes them indistinguishable to screen reader
+            users and hurts image search indexing. Fine for truly interchangeable shots from the same moment --
+            otherwise, tweak each one below after applying.
+          </p>
+        </div>
+      )}
 
       {files.length > 0 && (
         <div className="upload-batch-list">

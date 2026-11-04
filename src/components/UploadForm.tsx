@@ -47,9 +47,7 @@ export function UploadForm({ onUploaded }: Props) {
   }
 
   return (
-    <form className="upload-form" onSubmit={handleSubmit}>
-      <h2>Upload a new photo</h2>
-
+    <form className="modal-form" onSubmit={handleSubmit}>
       <label className="field">
         <span>Image file</span>
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} />
@@ -94,7 +92,7 @@ export function UploadForm({ onUploaded }: Props) {
 
       {error && <p className="form-error">{error}</p>}
 
-      <button type="submit" disabled={submitting}>
+      <button type="submit" className="btn-primary" disabled={submitting}>
         {submitting ? "Uploading..." : "Upload"}
       </button>
     </form>

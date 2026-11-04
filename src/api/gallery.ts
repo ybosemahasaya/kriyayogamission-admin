@@ -31,7 +31,7 @@ export function uploadImage(input: UploadImageInput): Promise<{ id: string }> {
 
 export function updateImage(
   id: string,
-  patch: Partial<Pick<GalleryImageDTO, "caption" | "category" | "displayOrder" | "published">>,
+  patch: Partial<Pick<GalleryImageDTO, "caption" | "altText" | "category" | "displayOrder" | "published">>,
 ): Promise<GalleryImageDTO> {
   return fetch(`${BASE}/${id}`, {
     method: "PATCH",

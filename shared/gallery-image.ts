@@ -12,4 +12,5 @@ export interface GalleryImageDTO {
   displayOrder: number;
   published: boolean;
   createdAt: string;
+  uploadedBy: string;
 }

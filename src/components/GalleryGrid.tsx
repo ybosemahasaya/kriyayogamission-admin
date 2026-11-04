@@ -1,39 +1,87 @@
+import { useState } from "react";
 import type { GalleryImageDTO } from "../../shared/gallery-image";
-import { deleteImage } from "../api/gallery";
+import { deleteImage, updateImage } from "../api/gallery";
+import { EditIcon, EyeIcon, EyeOffIcon, TrashIcon } from "./icons";
 
 interface Props {
   images: GalleryImageDTO[];
+  emptyMessage: string;
   onChanged: () => void;
+  onEdit: (image: GalleryImageDTO) => void;
 }
 
-export function GalleryGrid({ images, onChanged }: Props) {
+export function GalleryGrid({ images, emptyMessage, onChanged, onEdit }: Props) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this photo? This cannot be undone.")) return;
-    await deleteImage(id);
-    onChanged();
+    setBusyId(id);
+    try {
+      await deleteImage(id);
+      onChanged();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleTogglePublished(image: GalleryImageDTO) {
+    setBusyId(image.id);
+    try {
+      await updateImage(image.id, { published: !image.published });
+      onChanged();
+    } finally {
+      setBusyId(null);
+    }
   }
 
   if (images.length === 0) {
-    return <p className="empty-state">No photos yet -- upload the first one above.</p>;
+    return <p className="empty-state">{emptyMessage}</p>;
   }
 
   return (
     <div className="gallery-grid">
       {images.map((image) => (
         <article key={image.id} className="gallery-card">
-          {/* Served from R2 once a public read path is wired up; shows the
-             raw key for now so uploads are verifiable end-to-end. */}
-          <div className="gallery-thumb-placeholder" title={image.src}>
-            {image.src}
+          <div className="card-media">
+            <img src={`/images/${image.src}`} alt={image.altText} loading="lazy" />
+            <span className="card-category-badge">{image.category}</span>
+            <div className="card-actions">
+              <button
+                type="button"
+                className="icon-btn"
+                title="Edit"
+                onClick={() => onEdit(image)}
+                disabled={busyId === image.id}
+              >
+                <EditIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={image.published ? "Unpublish" : "Publish"}
+                onClick={() => handleTogglePublished(image)}
+                disabled={busyId === image.id}
+              >
+                {image.published ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+              <button
+                type="button"
+                className="icon-btn icon-btn-danger"
+                title="Delete"
+                onClick={() => handleDelete(image.id)}
+                disabled={busyId === image.id}
+              >
+                <TrashIcon />
+              </button>
+            </div>
           </div>
-          <div className="gallery-meta">
-            <span className="gallery-category">{image.category}</span>
-            <p className="gallery-caption">{image.caption || <em>No caption</em>}</p>
-            <p className="gallery-alt">alt: {image.altText}</p>
+          <div className="card-body">
+            <p className="card-caption">{image.caption || <em>No caption</em>}</p>
+            <p className="card-alt">{image.altText}</p>
+            <p className="card-footer">
+              {image.uploadedBy} · {new Date(image.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </p>
           </div>
-          <button type="button" className="danger" onClick={() => handleDelete(image.id)}>
-            Delete
-          </button>
         </article>
       ))}
     </div>

@@ -106,6 +106,7 @@ async function create(request: Request, env: Env): Promise<Response> {
 async function update(request: Request, env: Env, id: string): Promise<Response> {
   const body = await request.json<Partial<{
     caption: string;
+    altText: string;
     category: string;
     displayOrder: number;
     published: boolean;
@@ -117,6 +118,11 @@ async function update(request: Request, env: Env, id: string): Promise<Response>
   if (body.caption !== undefined) {
     updates.push("caption = ?");
     values.push(body.caption);
+  }
+  if (body.altText !== undefined) {
+    if (!body.altText.trim()) return errorResponse("altText cannot be empty");
+    updates.push("alt_text = ?");
+    values.push(body.altText);
   }
   if (body.category !== undefined) {
     if (!isGalleryCategory(body.category)) {

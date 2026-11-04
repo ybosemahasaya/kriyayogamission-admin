@@ -29,6 +29,7 @@ export interface GalleryImageRow {
   display_order: number;
   published: number; // D1/SQLite has no boolean type -- 0 or 1
   created_at: string;
+  uploaded_by: string;
 }
 
 export function rowToDTO(row: GalleryImageRow): GalleryImageDTO {
@@ -41,5 +42,6 @@ export function rowToDTO(row: GalleryImageRow): GalleryImageDTO {
     displayOrder: row.display_order,
     published: row.published === 1,
     createdAt: row.created_at,
+    uploadedBy: row.uploaded_by,
   };
 }

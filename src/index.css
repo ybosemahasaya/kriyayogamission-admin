@@ -7,3 +7,29 @@ body,
 #root {
   min-height: 100%;
 }
+
+:root {
+  color-scheme: dark;
+
+  /* Warm, dark palette echoing the public site's "Sacred Warmth" brand
+     (saffron/gold on deep stone) rather than copying a generic neon
+     dashboard look wholesale. */
+  --bg: #121010;
+  --bg-elevated: #191613;
+  --surface: #1e1a17;
+  --border: #2d2722;
+  --text-primary: #f5efe6;
+  --text-secondary: #a89c8f;
+  --text-muted: #766a5e;
+  --accent: #e8a33d;
+  --accent-strong: #f0b355;
+  --accent-contrast: #1a1310;
+  --danger: #ef4444;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}

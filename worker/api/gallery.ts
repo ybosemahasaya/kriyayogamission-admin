@@ -1,5 +1,6 @@
 import { GALLERY_CATEGORIES, isGalleryCategory } from "../../shared/gallery-categories";
 import { errorResponse, getAccessUserEmail, json } from "../lib/http";
+import { triggerDevRebuild } from "../lib/deploy-hook";
 import type { Env, GalleryImageRow } from "../types";
 import { rowToDTO } from "../types";
 
@@ -27,6 +28,7 @@ export async function handleGalleryRequest(
   request: Request,
   env: Env,
   id: string | null,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const bindingError = requireBindings(env);
   if (bindingError) return bindingError;
@@ -35,11 +37,11 @@ export async function handleGalleryRequest(
     case "GET":
       return id ? getOne(env, id) : listAll(env);
     case "POST":
-      return create(request, env);
+      return create(request, env, ctx);
     case "PATCH":
-      return id ? update(request, env, id) : errorResponse("Missing image id", 400);
+      return id ? update(request, env, id, ctx) : errorResponse("Missing image id", 400);
     case "DELETE":
-      return id ? remove(env, id) : errorResponse("Missing image id", 400);
+      return id ? remove(env, id, ctx) : errorResponse("Missing image id", 400);
     default:
       return errorResponse("Method not allowed", 405);
   }
@@ -60,7 +62,7 @@ async function getOne(env: Env, id: string): Promise<Response> {
   return json(rowToDTO(row));
 }
 
-async function create(request: Request, env: Env): Promise<Response> {
+async function create(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const form = await request.formData();
   const file = form.get("file");
   const category = String(form.get("category") ?? "");
@@ -100,10 +102,12 @@ async function create(request: Request, env: Env): Promise<Response> {
     .bind(id, r2Key, altText, caption, category, now, uploadedBy)
     .run();
 
+  ctx.waitUntil(triggerDevRebuild(env));
+
   return json({ id, r2Key }, { status: 201 });
 }
 
-async function update(request: Request, env: Env, id: string): Promise<Response> {
+async function update(request: Request, env: Env, id: string, ctx: ExecutionContext): Promise<Response> {
   const body = await request.json<Partial<{
     caption: string;
     altText: string;
@@ -150,10 +154,11 @@ async function update(request: Request, env: Env, id: string): Promise<Response>
     .run();
 
   if (result.meta.changes === 0) return errorResponse("Image not found", 404);
+  ctx.waitUntil(triggerDevRebuild(env));
   return getOne(env, id);
 }
 
-async function remove(env: Env, id: string): Promise<Response> {
+async function remove(env: Env, id: string, ctx: ExecutionContext): Promise<Response> {
   const row = await env.DB!.prepare("SELECT r2_key FROM gallery_images WHERE id = ?")
     .bind(id)
     .first<{ r2_key: string }>();
@@ -161,6 +166,8 @@ async function remove(env: Env, id: string): Promise<Response> {
 
   await env.GALLERY_BUCKET!.delete(row.r2_key);
   await env.DB!.prepare("DELETE FROM gallery_images WHERE id = ?").bind(id).run();
+
+  ctx.waitUntil(triggerDevRebuild(env));
 
   return new Response(null, { status: 204 });
 }

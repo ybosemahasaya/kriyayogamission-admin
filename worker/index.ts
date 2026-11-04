@@ -5,7 +5,7 @@ import { errorResponse } from "./lib/http";
 import type { Env } from "./types";
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     // Everything this Worker owns lives under /api/* (plus /images/*, see
@@ -38,7 +38,7 @@ export default {
     const galleryMatch = url.pathname.match(/^\/api\/gallery(?:\/([^/]+))?\/?$/);
     if (galleryMatch) {
       try {
-        return await handleGalleryRequest(request, env, galleryMatch[1] ?? null);
+        return await handleGalleryRequest(request, env, galleryMatch[1] ?? null, ctx);
       } catch (err) {
         console.error("Gallery API error:", err);
         return errorResponse("Internal server error", 500);

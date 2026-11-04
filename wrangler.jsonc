@@ -17,24 +17,21 @@
     "not_found_handling": "single-page-application"
   },
 
-  // --- Bindings below are PLACEHOLDERS. ---
-  // Phase 1 checklist items "provision-r2" and "provision-d1" (see
-  // docs/admin-panel-architecture.html) must be done in the Cloudflare
-  // dashboard first, under this project's own account resources -- NOT by
-  // reusing/renaming anything that belongs to the public kriyayogamission
-  // site. Fill in the real bucket_name / database_id once those exist, then
-  // uncomment.
-  //
-  // "r2_buckets": [
-  //   { "binding": "GALLERY_BUCKET", "bucket_name": "kriyayogamission-admin-gallery" }
-  // ],
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "kriyayogamission-admin-db",
-  //     "database_id": "REPLACE_ME_AFTER_PROVISIONING"
-  //   }
-  // ],
+  // Provisioned for THIS project only (kriyayogamission-admin), in the
+  // Cloudflare dashboard -- never pointed at anything belonging to the
+  // public kriyayogamission site. Native Worker bindings only need the
+  // bucket/database name+id, not the S3 API endpoint (that endpoint is
+  // only relevant if something used the S3-compatible API directly).
+  "r2_buckets": [
+    { "binding": "GALLERY_BUCKET", "bucket_name": "kriyayogamission-admin-gallery" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kriyayogamission-admin-db",
+      "database_id": "df17af39-10fa-49dd-89b9-a71b662e43bc"
+    }
+  ],
 
   "observability": {
     "enabled": true

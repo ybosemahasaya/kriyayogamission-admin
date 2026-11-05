@@ -21,6 +21,17 @@ export default {
       return env.ASSETS.fetch(new Request(new URL("/landing", url), request));
     }
 
+    // Identity for the Profile menu. Cloudflare Access injects this
+    // header on every request it has already authenticated -- no JWT
+    // verification, no secrets, no separate Access API call needed, we
+    // just read what Cloudflare already put there. Returns null (not an
+    // error) when the header is absent, which is always the case in
+    // local dev where there's no Access layer at all.
+    if (url.pathname === "/api/me" && request.method === "GET") {
+      const email = request.headers.get("Cf-Access-Authenticated-User-Email");
+      return Response.json({ email: email ?? null });
+    }
+
     // Everything this Worker owns lives under /api/* (plus /images/*, see
     // below). Anything else falls through to the static React build via
     // the ASSETS binding -- same pattern the public site's worker.js uses.

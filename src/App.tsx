@@ -5,6 +5,7 @@ import { BulkEditModal } from "./components/BulkEditModal";
 import { EditImageModal } from "./components/EditImageModal";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { Modal } from "./components/Modal";
+import { ProfileMenu } from "./components/ProfileMenu";
 import { QuickLinksPage } from "./components/QuickLinksPage";
 import { Sidebar, type SidebarView } from "./components/Sidebar";
 import { UploadForm } from "./components/UploadForm";
@@ -221,6 +222,7 @@ function App() {
       )}
 
       <UploadProgressPanel items={uploadQueue.items} onDismiss={uploadQueue.dismiss} />
+      <ProfileMenu />
     </div>
   );
 }

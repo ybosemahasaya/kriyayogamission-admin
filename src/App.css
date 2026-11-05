@@ -940,6 +940,19 @@
   justify-content: space-between;
 }
 
+.analytics-alltime-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .analytics-realtime-badge {
   display: flex;
   align-items: center;

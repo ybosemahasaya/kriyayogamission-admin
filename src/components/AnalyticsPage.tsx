@@ -34,6 +34,12 @@ export function AnalyticsPage({ theme }: { theme: Theme }) {
           ))}
         </div>
 
+        {data && (
+          <div className="analytics-alltime-badge" title="Lifetime total users, limited by GA4's own data-retention window">
+            {formatNumber(data.allTimeUsers)} total visitors (all-time)
+          </div>
+        )}
+
         {realtimeUsers !== null && (
           <div className="analytics-realtime-badge">
             <span className="analytics-realtime-dot" />

@@ -17,6 +17,13 @@ import type { Env } from "../types";
 
 const RANGE_DAYS: Record<AnalyticsRange, number> = { "7d": 7, "30d": 30, "90d": 90 };
 
+// "All-time" is bounded by GA4's own data-retention setting (GA4 Admin ->
+// Data Settings -> Data Retention, default 2 months, max 14 months for
+// standard properties) -- picking a date earlier than the property itself
+// is safe, GA4 just returns whatever it actually still has. This is a
+// platform limit, not something this Worker can work around.
+const ALL_TIME_START_DATE = "2015-08-14";
+
 function parseRange(value: string | null): AnalyticsRange {
   if (value === "30d" || value === "90d") return value;
   return "7d";
@@ -152,14 +159,20 @@ export async function handleAnalyticsSummaryRequest(request: Request, env: Env):
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
         limit: "10",
       },
+      {
+        property,
+        dateRanges: [{ startDate: ALL_TIME_START_DATE, endDate: "today", name: "allTime" }],
+        metrics: [{ name: "totalUsers" }],
+      },
     ]),
   ]);
 
   const [summaryReport, timeseriesReport, topPagesReport, channelsReport, devicesReport] = batchA;
-  const [newVsReturningReport, geoReport] = batchB;
+  const [newVsReturningReport, geoReport, allTimeReport] = batchB;
 
   const payload: AnalyticsDTO = {
     range,
+    allTimeUsers: metricValue(allTimeReport.rows?.[0], 0),
     summary: shapeSummary(summaryReport),
     timeseries: shapeTimeseries(timeseriesReport),
     topPages: shapeTopPages(topPagesReport),

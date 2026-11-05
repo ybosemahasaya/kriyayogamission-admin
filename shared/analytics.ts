@@ -51,6 +51,10 @@ export interface AnalyticsCountry {
 
 export interface AnalyticsDTO {
   range: AnalyticsRange;
+  /** Lifetime total users, independent of the selected range tab --
+   * bounded by GA4's own data-retention window (see ALL_TIME_START_DATE
+   * in worker/api/analytics.ts), not necessarily since property creation. */
+  allTimeUsers: number;
   summary: AnalyticsSummary;
   timeseries: AnalyticsTimeseriesPoint[];
   topPages: AnalyticsTopPage[];

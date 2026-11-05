@@ -11,20 +11,10 @@
   // Static assets = the built React SPA (dist/client after `vite build`).
   // "single-page-application" fallback means any unmatched path serves
   // index.html so client-side routing works on refresh/deep links.
-  //
-  // run_worker_first: ["/"] is required because Cloudflare treats "/"
-  // as a direct "directory index" asset match ("/" -> index.html) at a
-  // layer with higher precedence than the Worker itself -- this is a
-  // different mechanism than the SPA not-found fallback above, and
-  // without this override the Worker's own "/" route (which serves the
-  // public landing page instead) never runs at all. Scoped to just "/"
-  // rather than every path, so ordinary asset requests (JS/CSS/images)
-  // still skip the Worker entirely for speed.
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": true
+    "not_found_handling": "single-page-application"
   },
 
   // Provisioned for THIS project only (kriyayogamission-admin), in the

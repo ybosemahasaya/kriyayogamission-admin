@@ -8,21 +8,16 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Public, unauthenticated landing page -- this is the one path that
-    // needs an explicit bypass in the Cloudflare Access policy (same
-    // category as /api/public/gallery and /images/* below), since Access
-    // otherwise gates this whole domain at the edge and a never-logged-in
-    // visitor needs to see our branding before hitting Cloudflare's real
-    // login screen. Everything else -- /app, /api/gallery*, etc. -- stays
-    // fully protected; see public/landing.html for why this is a single
-    // self-contained file with no further asset requests to bypass.
-    //
-    // Fetches the clean "/landing" path, not "/landing.html" -- Workers
-    // Assets 307-redirects .html requests to their extension-less form,
-    // and fetch() auto-follows redirects, which would otherwise bounce
-    // this to a path that isn't a literal file and land on the SPA
-    // fallback (index.html) instead of our landing page.
-    if (url.pathname === "/" && request.method === "GET") {
+    // Public, unauthenticated landing page. Cloudflare Access has no way
+    // to isolate the bare "/" path from "the whole domain" -- an empty
+    // Access application Path matches the apex AND everything beneath it,
+    // and a literal "/" gets silently normalized to that same empty/
+    // everything state (confirmed: it collided with the main admin app's
+    // destination, which also has no path set). So this lives at
+    // "/welcome" instead -- an ordinary non-root path, which Access can
+    // bypass individually exactly like the existing /images/* bypass,
+    // without touching protection on /app or /api/gallery*.
+    if (url.pathname === "/welcome" && request.method === "GET") {
       return env.ASSETS.fetch(new Request(new URL("/landing", url), request));
     }
 

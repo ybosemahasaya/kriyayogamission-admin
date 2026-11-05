@@ -22,9 +22,18 @@ export interface Env {
    * project's `dev` branch. Posting to this URL (no auth needed -- the URL
    * itself is the credential) starts a new build/deploy, same as a human
    * pushing a commit. Used to auto-trigger a dev rebuild after gallery
-   * changes; see worker/lib/deploy-hook.ts. Dev-only by design: there is
-   * deliberately no production equivalent configured. */
+   * changes; see worker/lib/deploy-hook.ts. */
   DEPLOY_HOOK_URL?: string;
+  /** Cloudflare Workers Builds "Deploy Hook" URL for the production
+   * kriyayogamission project's `main` branch. Added 2026-11-06, per
+   * explicit request, so admin uploads reach https://kriyayogamission.org/gallery
+   * at the same time as https://dev.kriyayogamission.org/gallery, not just
+   * dev. Requires ADMIN_GALLERY_API_URL to also be set as a Build variable
+   * on the production Cloudflare project (Gallery.astro's fetch is already
+   * environment-agnostic -- this is the other half, the thing that actually
+   * triggers a production build). Silent no-op if unset. See
+   * worker/lib/deploy-hook.ts. */
+  PROD_DEPLOY_HOOK_URL?: string;
   /** GA4 Data API credentials for the Analytics dashboard. GA4_PROPERTY_ID
    * is not sensitive (just an identifier, visible in GA's own UI URLs)
    * and lives as a plain var in wrangler.jsonc; everything else below is

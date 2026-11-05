@@ -1,6 +1,6 @@
 import { GALLERY_CATEGORIES, isGalleryCategory } from "../../shared/gallery-categories";
 import { errorResponse, getAccessUserEmail, json } from "../lib/http";
-import { triggerDevRebuild } from "../lib/deploy-hook";
+import { triggerSiteRebuilds } from "../lib/deploy-hook";
 import type { Env, GalleryImageRow } from "../types";
 import { rowToDTO } from "../types";
 
@@ -120,7 +120,7 @@ async function bulkUpdate(request: Request, env: Env, ctx: ExecutionContext): Pr
     .bind(...values, ...ids)
     .run();
 
-  ctx.waitUntil(triggerDevRebuild(env));
+  ctx.waitUntil(triggerSiteRebuilds(env));
   return json({ updated: result.meta.changes });
 }
 
@@ -143,7 +143,7 @@ async function bulkRemove(request: Request, env: Env, ctx: ExecutionContext): Pr
       .run();
   }
 
-  ctx.waitUntil(triggerDevRebuild(env));
+  ctx.waitUntil(triggerSiteRebuilds(env));
   return json({ deleted: results.length });
 }
 
@@ -202,7 +202,7 @@ async function create(request: Request, env: Env, ctx: ExecutionContext): Promis
     .bind(id, r2Key, altText, caption, category, now, uploadedBy)
     .run();
 
-  ctx.waitUntil(triggerDevRebuild(env));
+  ctx.waitUntil(triggerSiteRebuilds(env));
 
   return json({ id, r2Key }, { status: 201 });
 }
@@ -254,7 +254,7 @@ async function update(request: Request, env: Env, id: string, ctx: ExecutionCont
     .run();
 
   if (result.meta.changes === 0) return errorResponse("Image not found", 404);
-  ctx.waitUntil(triggerDevRebuild(env));
+  ctx.waitUntil(triggerSiteRebuilds(env));
   return getOne(env, id);
 }
 
@@ -267,7 +267,7 @@ async function remove(env: Env, id: string, ctx: ExecutionContext): Promise<Resp
   await env.GALLERY_BUCKET!.delete(row.r2_key);
   await env.DB!.prepare("DELETE FROM gallery_images WHERE id = ?").bind(id).run();
 
-  ctx.waitUntil(triggerDevRebuild(env));
+  ctx.waitUntil(triggerSiteRebuilds(env));
 
   return new Response(null, { status: 204 });
 }

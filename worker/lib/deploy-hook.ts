@@ -1,7 +1,7 @@
 import type { Env } from "../types";
 
 /**
- * Triggers a kriyayogamission-dev rebuild after gallery create/update/
+ * Triggers a rebuild of the public site after gallery create/update/
  * delete, so the public gallery picks up admin panel changes
  * automatically instead of requiring someone to remember to manually
  * rebuild.
@@ -18,31 +18,43 @@ import type { Env } from "../types";
  * request code.
  *
  * Current approach: Cloudflare Workers Builds has its own "Deploy Hooks"
- * feature (Settings -> Builds -> Deploy Hooks on the kriyayogamission-dev
- * project), scoped to the `dev` branch. Posting to that URL starts a
- * build directly -- a Cloudflare-to-Cloudflare call that never touches
- * GitHub's API at all, so the 525 problem is structurally impossible
- * here. No auth header needed; the URL itself is the credential (treated
- * like a secret, stored as DEPLOY_HOOK_URL).
+ * feature (Settings -> Builds -> Deploy Hooks on each project), scoped to
+ * a specific branch. Posting to that URL starts a build directly -- a
+ * Cloudflare-to-Cloudflare call that never touches GitHub's API at all,
+ * so the 525 problem is structurally impossible here. No auth header
+ * needed; the URL itself is the credential (treated like a secret).
  *
- * Deliberately dev-only: no production Deploy Hook is configured, and
- * this code has no path to one. See docs/admin-panel-architecture.html.
- * DEPLOY_HOOK_URL is a silent no-op if unset, so gallery CRUD keeps
- * working even without it configured.
+ * Originally dev-only (DEPLOY_HOOK_URL -> kriyayogamission-dev's `dev`
+ * branch). Extended 2026-11-06, per explicit request, to also fire
+ * PROD_DEPLOY_HOOK_URL -> the production kriyayogamission project's
+ * `main` branch, once ADMIN_GALLERY_API_URL was added as a Build
+ * variable on *both* Cloudflare projects (see Gallery.astro in the
+ * public site repo -- that fetch is already environment-agnostic, it
+ * just needed something to actually trigger a production build). Each
+ * hook fires independently and is a silent no-op if its URL isn't set,
+ * so gallery CRUD keeps working even with only one (or neither)
+ * configured, and a failure on one hook never blocks the other.
  *
- * Call via ctx.waitUntil() so a slow/failed deploy hook request never
- * delays or breaks the actual API response to the admin UI.
+ * Call via ctx.waitUntil() so slow/failed deploy hook requests never
+ * delay or break the actual API response to the admin UI.
  */
-export async function triggerDevRebuild(env: Env): Promise<void> {
-  if (!env.DEPLOY_HOOK_URL) return;
+export async function triggerSiteRebuilds(env: Env): Promise<void> {
+  await Promise.all([
+    triggerHook(env.DEPLOY_HOOK_URL, "dev"),
+    triggerHook(env.PROD_DEPLOY_HOOK_URL, "production"),
+  ]);
+}
+
+async function triggerHook(url: string | undefined, label: string): Promise<void> {
+  if (!url) return;
 
   try {
-    const res = await fetch(env.DEPLOY_HOOK_URL, { method: "POST" });
+    const res = await fetch(url, { method: "POST" });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error(`[DEPLOY HOOK] Deploy hook request failed: ${res.status} ${text}`);
+      console.error(`[DEPLOY HOOK] ${label} deploy hook request failed: ${res.status} ${text}`);
     }
   } catch (err) {
-    console.error("[DEPLOY HOOK] Deploy hook request threw:", err);
+    console.error(`[DEPLOY HOOK] ${label} deploy hook request threw:`, err);
   }
 }

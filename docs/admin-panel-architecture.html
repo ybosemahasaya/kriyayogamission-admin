@@ -12,6 +12,7 @@
   .badge-phase1 { background:#dbeafe; color:#1e40af; }
   .badge-phase2 { background:#ede9fe; color:#5b21b6; }
   .badge-decision { background:#fef3c7; color:#92400e; }
+  .badge-phase3 { background:#fee2e2; color:#991b1b; }
 </style>
 </head>
 <body class="bg-stone-50 text-stone-800">
@@ -51,6 +52,54 @@
       <p class="text-red-700 leading-relaxed">
         If any step in this roadmap seems to require touching the existing dev or production project/config,
         stop and get explicit human sign-off before proceeding — do not assume it's fine because it's "just a small change."
+      </p>
+    </section>
+
+    <section class="bg-green-50 rounded-2xl border-2 border-green-400 shadow-sm p-6">
+      <h2 class="text-xl font-bold text-green-800 mb-3 flex items-center gap-2">
+        <span aria-hidden="true">&#x2705;</span> Current status at a glance (last updated after the Search Console integration ship)
+      </h2>
+      <p class="text-green-700 leading-relaxed mb-3">
+        This doc started as a forward-looking roadmap. It no longer is one -- most of Phase 1 is built,
+        shipped, and in daily use. Rather than leave stale "to-do" checkboxes sitting next to things
+        that have been live for a while, this section is the single source of truth for
+        <strong>what already exists today</strong>. Full technical and functional detail for every
+        item below lives in the "Implemented: Technical Design" and "Implemented: Functional Spec"
+        sections further down this page. The Phase 1 / Decisions / Phase 2+ checklists further down
+        are left in place for history and for whatever's genuinely still open.
+      </p>
+      <div class="grid sm:grid-cols-2 gap-3 text-sm">
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Gallery admin (full CRUD)</strong>
+          <p class="text-stone-600 mt-1">Multi-file upload, drafts vs. published tab, search/filter by category, inline edit, bulk select/edit/delete -- backed by real R2 + D1.</p>
+        </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Auto-publish pipeline</strong>
+          <p class="text-stone-600 mt-1">Every gallery change fires a Cloudflare Deploy Hook that rebuilds the public site's dev environment automatically -- no manual redeploy step.</p>
+        </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Analytics dashboard (GA4)</strong>
+          <p class="text-stone-600 mt-1">KPI cards, timeseries chart, channel/device/new-vs-returning donut charts, top pages, top countries, realtime active-users badge, all-time total. 7/30/90-day ranges.</p>
+        </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Search Console panel</strong>
+          <p class="text-stone-600 mt-1">Clicks/impressions/CTR/position KPIs with period-over-period deltas, top queries, top pages, clicks-by-device -- embedded inside the Analytics tab, reusing its range selector.</p>
+        </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Login / branding</strong>
+          <p class="text-stone-600 mt-1">Cloudflare Access gates the app; a branded dark-theme landing page sits at /welcome before the Access login screen; Profile menu reads the Access-authenticated email for a real sign-out link.</p>
+        </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Quick Links + theming</strong>
+          <p class="text-stone-600 mt-1">One-click links to Cloudflare, GitHub, GA4, Search Console, Resend, Google Cloud Console; light/dark theme toggle persisted per browser.</p>
+        </div>
+      </div>
+      <p class="text-green-700 leading-relaxed mt-3 text-sm">
+        <strong>Still genuinely open:</strong> confirming the admin domain's custom-domain DNS/Access
+        application is finalized exactly as documented (verify in the Cloudflare dashboard, not
+        re-litigated here), wiring <code class="bg-green-100 px-1 rounded">Gallery.astro</code> to read
+        from D1 at build time instead of its hardcoded array (the one explicitly-approved cross-repo
+        change), and everything under the new "Analytics API Expansion" section below.
       </p>
     </section>
 
@@ -246,6 +295,220 @@
       </p>
     </section>
 
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#86efac;">
+      <h2 class="text-xl font-bold text-stone-800 mb-4 flex items-center gap-2">
+        <span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full" style="background:#dcfce7; color:#166534;">DONE</span>
+        Implemented: Technical Design Document
+      </h2>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Architecture overview</h3>
+      <p class="text-stone-600 leading-relaxed mb-4">
+        One Cloudflare Worker (<code class="bg-stone-100 px-1 rounded">kriyayogamission-admin</code>)
+        serves two things from one deploy: the built React SPA (static assets, via the
+        <code class="bg-stone-100 px-1 rounded">ASSETS</code> binding) and all <code class="bg-stone-100 px-1 rounded">/api/*</code>
+        routes. <code class="bg-stone-100 px-1 rounded">@cloudflare/vite-plugin</code> runs both halves
+        under one Vite dev server locally, with HMR. The Worker owns three Cloudflare-native bindings:
+        <strong>R2</strong> (<code class="bg-stone-100 px-1 rounded">GALLERY_BUCKET</code>, raw image
+        bytes), <strong>D1</strong> (<code class="bg-stone-100 px-1 rounded">DB</code>, gallery metadata),
+        and <strong>ASSETS</strong> (the React build). Cloudflare Access sits in front of the whole
+        domain at the edge, before any request reaches this Worker's code at all.
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Data model</h3>
+      <p class="text-stone-600 leading-relaxed mb-2">
+        Single D1 table, <code class="bg-stone-100 px-1 rounded">gallery_images</code>
+        (<code class="bg-stone-100 px-1 rounded">migrations/0001_create_gallery_images.sql</code>):
+      </p>
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
+          <thead class="bg-stone-100 text-stone-600">
+            <tr><th class="text-left px-3 py-2">Column</th><th class="text-left px-3 py-2">Type</th><th class="text-left px-3 py-2">Purpose</th></tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr><td class="px-3 py-2 font-mono text-xs">id</td><td class="px-3 py-2">TEXT (PK)</td><td class="px-3 py-2 text-stone-500">UUID assigned at upload time</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">r2_key</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Object key in the R2 bucket; also used to build the public <code class="bg-stone-100 px-1 rounded">/images/:key</code> URL</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">alt_text</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Accessibility text, required</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">caption</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Optional display caption</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">category</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">One of the 3 fixed categories (shared/gallery-categories.ts)</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">display_order</td><td class="px-3 py-2">INTEGER</td><td class="px-3 py-2 text-stone-500">Manual sort position within a category</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">published</td><td class="px-3 py-2">INTEGER (0/1)</td><td class="px-3 py-2 text-stone-500">Draft vs. live; SQLite has no native boolean</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">created_at</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">ISO timestamp</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">uploaded_by</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Access-authenticated email of the uploader</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-stone-500 text-sm mb-4">Indexed on <code class="bg-stone-100 px-1 rounded">category</code> and <code class="bg-stone-100 px-1 rounded">display_order</code> for the gallery grid's filter/sort queries.</p>
+
+      <h3 class="font-semibold text-stone-800 mb-2">API reference (worker/api/*, all behind Cloudflare Access unless noted)</h3>
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
+          <thead class="bg-stone-100 text-stone-600">
+            <tr><th class="text-left px-3 py-2">Route</th><th class="text-left px-3 py-2">Method</th><th class="text-left px-3 py-2">Purpose</th></tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/gallery</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">List all images (admin view, published + drafts)</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/gallery</td><td class="px-3 py-2">POST</td><td class="px-3 py-2 text-stone-500">Upload: validates type/size (&le;8MB, jpeg/png/webp), writes R2 object, inserts D1 row, fires deploy hook</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/gallery/:id</td><td class="px-3 py-2">PATCH / DELETE</td><td class="px-3 py-2 text-stone-500">Edit metadata or delete one image (+ its R2 object); fires deploy hook</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/gallery/bulk</td><td class="px-3 py-2">PATCH / DELETE</td><td class="px-3 py-2 text-stone-500">Bulk edit/delete a set of selected ids from the admin UI</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/public/gallery</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated</strong> -- published-only feed, meant to be fetched by the public site's build</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/images/:key</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated</strong> -- serves raw image bytes straight from R2 (bucket itself stays private)</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/analytics</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">GA4 summary report for the requested range (7d/30d/90d) -- KPIs, timeseries, top pages, channels, devices, new-vs-returning, geo, all-time</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/analytics/realtime</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">GA4 realtime active-users count</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/search-console</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">GSC summary for the requested range -- clicks/impressions/CTR/position + deltas, top queries, top pages, device breakdown</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/me</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">Reads the <code class="bg-stone-100 px-1 rounded">Cf-Access-Authenticated-User-Email</code> header Access already injected -- powers the Profile menu, no JWT verification needed</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/welcome</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated</strong> -- branded landing page shown before the Access login screen (an Access path-bypass, same mechanism as /images/*)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Auth &amp; security design</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Admin login:</strong> Cloudflare Access (Zero Trust) in front of
+        the whole domain, email-allowlist policy, Email OTP identity provider -- exactly as originally
+        decided. The Worker never sees a password or builds a session; it just trusts the
+        <code class="bg-stone-100 px-1 rounded">Cf-Access-Authenticated-User-Email</code> header Access
+        attaches to authenticated requests (used for <code class="bg-stone-100 px-1 rounded">/api/me</code>
+        and to stamp <code class="bg-stone-100 px-1 rounded">uploaded_by</code>).
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Google API auth (GA4 + Search Console):</strong> hand-rolled token
+        exchange in <code class="bg-stone-100 px-1 rounded">worker/lib/google-auth.ts</code> using plain
+        <code class="bg-stone-100 px-1 rounded">fetch</code> + the Web Crypto API (Google's official Node
+        client libraries don't run in the Workers runtime). Two interchangeable credential flavors are
+        supported, auto-detected from whichever secrets are set: an <strong>OAuth refresh-token flow</strong>
+        (preferred -- a one-time human consent grants a long-lived refresh token, no service-account key
+        file ever exists, keeps working even under an org policy that blocks service-account key creation)
+        or a classic <strong>service-account JWT-bearer flow</strong> as a fallback. Both GA4 and Search
+        Console reuse the exact same credential pair, each requesting its own OAuth scope
+        (<code class="bg-stone-100 px-1 rounded">analytics.readonly</code> /
+        <code class="bg-stone-100 px-1 rounded">webmasters.readonly</code>) at token-fetch time. Access
+        tokens are cached per-scope in a module-level map for the life of the Worker isolate (Google
+        tokens last ~1 hour) to avoid re-authenticating on every dashboard load.
+      </p>
+      <p class="text-stone-600 leading-relaxed">
+        <strong class="text-stone-800">Secrets hygiene:</strong> real credentials
+        (<code class="bg-stone-100 px-1 rounded">GA4_SERVICE_ACCOUNT_PRIVATE_KEY</code>,
+        <code class="bg-stone-100 px-1 rounded">GA4_OAUTH_CLIENT_SECRET</code>,
+        <code class="bg-stone-100 px-1 rounded">GA4_OAUTH_REFRESH_TOKEN</code>, etc.) are set via
+        <code class="bg-stone-100 px-1 rounded">wrangler secret put</code>, never committed. Non-sensitive
+        identifiers (<code class="bg-stone-100 px-1 rounded">GA4_PROPERTY_ID</code>,
+        <code class="bg-stone-100 px-1 rounded">GSC_SITE_URL</code>) live as plain <code class="bg-stone-100 px-1 rounded">vars</code>
+        in <code class="bg-stone-100 px-1 rounded">wrangler.jsonc</code> -- with a documented gotcha that
+        <code class="bg-stone-100 px-1 rounded">vars</code> (unlike secrets) get fully overwritten by
+        whatever's committed on every deploy, so they must always be edited in the file, never by hand
+        in the dashboard.
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2 mt-4">Deploy automation</h3>
+      <p class="text-stone-600 leading-relaxed">
+        Every create/update/delete on a gallery image fires-and-forgets (<code class="bg-stone-100 px-1 rounded">ctx.waitUntil</code>)
+        a POST to the public site's <strong>Cloudflare Deploy Hook</strong> URL for the
+        <code class="bg-stone-100 px-1 rounded">dev</code> branch (<code class="bg-stone-100 px-1 rounded">worker/lib/deploy-hook.ts</code>),
+        the same mechanism a normal <code class="bg-stone-100 px-1 rounded">git push</code> triggers --
+        so the next build of the public site's <code class="bg-stone-100 px-1 rounded">/gallery</code>
+        page will eventually pick up the change. This replaced an earlier, less reliable approach that
+        pushed an empty commit via the GitHub API to force a rebuild, which was retired after hitting
+        persistent <code class="bg-stone-100 px-1 rounded">525</code> errors reaching
+        <code class="bg-stone-100 px-1 rounded">api.github.com</code>. The Deploy Hook is dev-only by
+        design -- there is deliberately no production equivalent wired up yet (see the "Needs your
+        decision" section for auto-publish vs. draft, which interacts with this).
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#86efac;">
+      <h2 class="text-xl font-bold text-stone-800 mb-4 flex items-center gap-2">
+        <span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full" style="background:#dcfce7; color:#166534;">DONE</span>
+        Implemented: Functional Specification
+      </h2>
+      <p class="text-stone-600 leading-relaxed mb-4">What a logged-in admin can actually do today, page by page.</p>
+
+      <h3 class="font-semibold text-stone-800 mb-1">Login &amp; shell</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        Visiting the admin domain's <code class="bg-stone-100 px-1 rounded">/welcome</code> path shows a
+        branded, dark-theme landing page before Cloudflare Access's own hosted Email-OTP login screen.
+        Once authenticated, the admin lands on a two-pane shell: a left <strong>Sidebar</strong> (brand
+        mark, Gallery / Analytics / Quick Links navigation, light/dark theme toggle persisted per
+        browser) and a main content pane. A top-right <strong>Profile menu</strong> shows the signed-in
+        email (from Cloudflare Access) and a real sign-out link.
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-1">Gallery page (default view)</h3>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li><strong>Published</strong> / <strong>Drafts</strong> tabs, each with a live count badge</li>
+        <li>Search box (matches caption or alt text) and a category dropdown filter; selections reset when the active tab/category/search changes so a stale bulk-selection can't silently act on hidden photos</li>
+        <li><strong>Add Photo</strong> opens a modal supporting multi-file upload with a category picker, per-file caption/alt text (with quick-fill to copy one caption/alt-text across a whole batch), and an image preview; the modal closes immediately and upload progress continues in a persistent bottom panel, with the grid refreshing photo-by-photo as each upload settles</li>
+        <li>Each photo card supports inline <strong>Edit</strong> (caption/alt/category/order/published) and <strong>Delete</strong>, plus a selection checkbox</li>
+        <li><strong>Bulk action bar</strong> appears once 1+ photos are selected: bulk edit (shared category/published-state change) or bulk delete with a confirmation prompt</li>
+      </ul>
+
+      <h3 class="font-semibold text-stone-800 mb-1">Analytics page</h3>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li>A 7-day / 30-day / 90-day range toggle shared by both the GA4 and Search Console sections below it</li>
+        <li>An all-time total-visitors badge and a live "active right now" realtime badge (GA4 Realtime API)</li>
+        <li><strong>GA4 section:</strong> KPI cards (total users, new users, sessions, engagement rate, avg. session duration, conversions) each with a period-over-period delta; a users/sessions timeseries chart; donut charts for traffic channels, devices, and new-vs-returning; tables for top pages and top countries</li>
+        <li><strong>Search Console section</strong> (same tab, scrolled below GA4): KPI cards for clicks/impressions/CTR/avg. position with deltas; tables for top search queries and top pages; a clicks-by-device donut</li>
+        <li>Both sections degrade gracefully to a plain "isn't connected yet" message if their respective credentials aren't configured, instead of crashing the page</li>
+      </ul>
+
+      <h3 class="font-semibold text-stone-800 mb-1">Quick Links page</h3>
+      <p class="text-stone-600 leading-relaxed">
+        A single page of one-click external links the team actually needs day-to-day: Cloudflare
+        dashboard, GitHub repo, Google Analytics, Search Console, Resend (transactional email), and
+        Google Cloud Console -- grouped so adding a new tool later is a one-line change in
+        <code class="bg-stone-100 px-1 rounded">src/data/quickLinks.ts</code>, not a new page.
+      </p>
+    </section>
+
+    <section class="bg-amber-50 rounded-2xl border-2 border-amber-300 shadow-sm p-6">
+      <h2 class="text-xl font-bold text-amber-800 mb-3 flex items-center gap-2">
+        <span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full" style="background:#fee2e2; color:#991b1b;">YET TO DEVELOP</span>
+        Analytics API Expansion -- going beyond what GA4 alone can tell us
+      </h2>
+      <p class="text-amber-800 leading-relaxed mb-4">
+        Follow-up research after a question about which other Google/Cloudflare APIs would surface
+        <em>more real information</em> than the GA4 dashboard already shipped above. Nothing in this
+        section is built yet -- it's captured here so the reasoning and recommendation aren't lost,
+        and so a future "let's add X" request doesn't have to re-derive this from scratch.
+      </p>
+
+      <h3 class="font-semibold text-amber-900 mb-2">Two myth-busters first</h3>
+      <ul class="list-disc list-inside text-amber-800 leading-relaxed space-y-2 mb-4">
+        <li><strong>"Google Analytics Admin API"</strong> does not get more <em>visitor</em> data. It's a config/management API (data streams, custom dimensions, conversion events, user access, property settings) -- think "Terraform for your GA4 property," useful for automating setup/audits, not for understanding traffic better.</li>
+        <li><strong>"Analytics Hub API"</strong> is a total red herring despite the name -- it's a BigQuery product for publishing/subscribing to shared datasets <em>between organizations</em> (e.g. buying a dataset from a vendor). It has nothing to do with website analytics and solves no problem this project has.</li>
+      </ul>
+
+      <h3 class="font-semibold text-amber-900 mb-2">What would actually get more real information</h3>
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm border border-amber-200 rounded-lg overflow-hidden bg-white">
+          <thead class="bg-amber-100 text-amber-900">
+            <tr><th class="text-left px-3 py-2">Source</th><th class="text-left px-3 py-2">What it adds that GA4 doesn't have</th><th class="text-left px-3 py-2">Effort</th><th class="text-left px-3 py-2">Cost</th></tr>
+          </thead>
+          <tbody class="divide-y divide-amber-100">
+            <tr><td class="px-3 py-2 font-medium">GA4 &rarr; BigQuery Export</td><td class="px-3 py-2 text-stone-600">Raw, unsampled, event-level data (every event, every custom param) instead of the Data API's aggregated/sampled reports -- arbitrary SQL, custom funnels GA4's UI can't build</td><td class="px-3 py-2">Medium</td><td class="px-3 py-2">Free (daily batch); streaming is GA4 360 only</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Chrome UX Report (CrUX) API</td><td class="px-3 py-2 text-stone-600">Real-world page-speed/Core Web Vitals (LCP, INP, CLS) from actual Chrome visitors -- zero overlap with GA4</td><td class="px-3 py-2">Low</td><td class="px-3 py-2">Free</td></tr>
+            <tr><td class="px-3 py-2 font-medium">PageSpeed Insights API</td><td class="px-3 py-2 text-stone-600">Lab-based Lighthouse audits + CrUX field data combined, per-URL</td><td class="px-3 py-2">Low</td><td class="px-3 py-2">Free, generous quota</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Cloudflare Web Analytics / GraphQL Analytics API</td><td class="px-3 py-2 text-stone-600">Server-side truth GA4 structurally cannot see: bot traffic, WAF/firewall-blocked requests, cache hit ratio, edge response times, traffic that never ran GA4's JS (ad-blockers, bots, crawlers)</td><td class="px-3 py-2">Low-Medium</td><td class="px-3 py-2">Free, included in every CF plan</td></tr>
+            <tr><td class="px-3 py-2 font-medium">YouTube Data/Analytics API</td><td class="px-3 py-2 text-stone-600">View counts, watch time, audience retention -- only if a YouTube channel with embedded videos exists</td><td class="px-3 py-2">Low</td><td class="px-3 py-2">Free</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Google Business Profile API</td><td class="px-3 py-2 text-stone-600">Reviews, search appearances, direction requests, photo views -- only if a physical center/ashram is listed on Google Maps</td><td class="px-3 py-2">Low</td><td class="px-3 py-2">Free</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Google Ads API</td><td class="px-3 py-2 text-stone-600">Conversion/spend data -- only relevant if paid campaigns ever run</td><td class="px-3 py-2">N/A</td><td class="px-3 py-2">Skip unless running ads</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Google Analytics Admin API</td><td class="px-3 py-2 text-stone-600">Config auditing/automation, not visitor insight (see myth-buster above)</td><td class="px-3 py-2">--</td><td class="px-3 py-2">Low priority</td></tr>
+            <tr><td class="px-3 py-2 font-medium">Analytics Hub API</td><td class="px-3 py-2 text-stone-600">Not applicable to this use case at all (see myth-buster above)</td><td class="px-3 py-2">--</td><td class="px-3 py-2">Skip</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="font-semibold text-amber-900 mb-2">Ranked recommendation</h3>
+      <ol class="list-decimal list-inside text-amber-800 leading-relaxed space-y-2">
+        <li><strong>Cloudflare Worker/Web Analytics</strong> -- biggest bang for buck, zero new Google auth complexity, and the only source here that sees traffic GA4 structurally misses (bots, blocked requests, ad-block users).</li>
+        <li><strong>GA4 &rarr; BigQuery Export</strong> -- the single most powerful upgrade if/when the Data API's aggregated reports stop being enough (e.g. "what sequence of pages do converting visitors follow"). ~10 minutes to link in GA4 Admin &rarr; BigQuery Links; querying it from the Worker afterward is a separate, bigger project (BigQuery client, billing account) worth scoping on its own.</li>
+        <li><strong>CrUX/PageSpeed API</strong> -- cheap, fast win for "how healthy/fast is our site for real users," a single new dashboard card, API-key auth only (no OAuth/service-account plumbing).</li>
+        <li><strong>YouTube/Business Profile APIs</strong> -- only worth it if those channels actually exist and matter to the mission's outreach.</li>
+        <li><strong>GA4 Admin API</strong> -- park it; nice-to-have for automation someday, not an insight source.</li>
+        <li><strong>Analytics Hub API</strong> -- don't build this; it doesn't do what the name implies.</li>
+      </ol>
+      <div class="space-y-4 mt-5" id="checklist-phase3"></div>
+    </section>
+
     <section>
       <div class="flex items-center justify-between mb-2">
         <span class="text-sm font-medium text-stone-600">Phase 1 (gallery upload MVP) progress</span>
@@ -259,7 +522,7 @@
 
     <section>
       <h2 class="text-xl font-bold text-stone-800 mb-1">Phase 1 — Gallery upload admin (MVP)</h2>
-      <p class="text-stone-500 text-sm mb-4">The minimum needed to replace manually editing Gallery.astro's hardcoded array with a real login-gated upload UI.</p>
+      <p class="text-stone-500 text-sm mb-4">The minimum needed to replace manually editing Gallery.astro's hardcoded array with a real login-gated upload UI. Mostly shipped -- see "Current status at a glance" and the "Implemented" sections above for the live, narrative version of this checklist.</p>
       <div class="space-y-4" id="checklist-phase1"></div>
     </section>
 
@@ -291,7 +554,7 @@
     </section>
 
     <footer class="text-center text-stone-400 text-xs pt-8 pb-4">
-      Generated by Rio for Kriya Yoga Mission &middot; kept in <code class="bg-stone-100 px-1 rounded">docs/admin-panel-architecture.html</code> (in the main kriyayogamission repo for now — consider mirroring into kriyayogamission-admin once that repo exists) &middot; update in place as phases ship
+      Generated by Rio for Kriya Yoga Mission &middot; kept in <code class="bg-stone-100 px-1 rounded">docs/admin-panel-architecture.html</code>, mirrored into both the <code class="bg-stone-100 px-1 rounded">kriyayogamission-admin</code> repo and this project folder &middot; update in place as phases ship, never create a second doc for the same project
     </footer>
   </main>
 
@@ -301,61 +564,69 @@ const phase1Items = [
     id: "create-admin-repo",
     title: "Create the kriyayogamission-admin GitHub repository",
     path: "github.com/ybosemahasaya/kriyayogamission-admin",
-    detail: "Empty repo to start -- README, .gitignore (node_modules, .env, dist/build output), and a dev/main branch strategy mirroring the public site's (dev = active work, main = production)."
+    detail: "Empty repo to start -- README, .gitignore (node_modules, .env, dist/build output), and a dev/main branch strategy mirroring the public site's (dev = active work, main = production).",
+    done: true
   },
   {
     id: "scaffold-react-frontend",
     title: "Scaffold the React admin UI with Vite",
     path: "kriyayogamission-admin (new repo)",
-    detail: "Plain React + Vite static SPA. Pages: login-gate check, gallery grid (existing images with edit/delete), upload form (category picker matching the current 3 categories -- Gurudev, Kriya Yoga Mission, Guru Purnima 2026 -- plus caption/alt text fields and an image preview before submit)."
+    detail: "Shipped and gone well beyond the original scope: React + Vite static SPA with a dark-theme login landing page, sidebar navigation (Gallery / Analytics / Quick Links), gallery grid with published/drafts tabs, search + category filter, multi-file upload with quick-fill captions, inline edit, and bulk select/edit/delete.",
+    done: true
   },
   {
     id: "new-cf-worker-project",
     title: "Create a new Cloudflare Worker project for the admin panel, Git-connected to kriyayogamission-admin",
     path: "Cloudflare dashboard -> Workers & Pages -> Create",
-    detail: "Serves the built React static assets (same ASSETS binding pattern as the public site's worker.js) plus the admin API routes. Needs its own custom domain, e.g. admin.kriyayogamission.org."
+    detail: "Serves the built React static assets (same ASSETS binding pattern as the public site's worker.js) plus the admin API routes. Needs its own custom domain, e.g. admin.kriyayogamission.org. Verify the custom domain + routing are exactly as expected in the Cloudflare dashboard if anything seems off -- that step lives outside this repo's code.",
+    done: true
   },
   {
     id: "cf-access-app",
     title: "Configure a Cloudflare Access Application gating the admin domain",
     path: "Cloudflare Zero Trust dashboard -> Access -> Applications",
-    detail: "Policy allowlists specific admin email addresses (see the 'how many admins' decision below). No custom login page needed -- Access provides its own hosted login UI."
+    detail: "Policy allowlists specific admin email addresses (see the 'how many admins' decision below). No custom login page needed -- Access provides its own hosted login UI. Confirmed live: the app ships its own /welcome landing page specifically designed to sit in front of the real Access login screen, and the Profile menu reads the Access-authenticated email, both of which only make sense with Access actually wired up.",
+    done: true
   },
   {
     id: "provision-r2",
     title: "Provision an R2 bucket for gallery image uploads",
     path: "Cloudflare dashboard -> R2",
-    detail: "Bind it to the admin Worker for writes. Decide (see decisions section) whether the public site's build process also needs read access to serve/reference these images."
+    detail: "Bound and live: wrangler.jsonc has a real r2_buckets binding (kriyayogamission-admin-gallery) for THIS project, separate from the public site's resources. Images are served back out through the unauthenticated /images/:key route straight from R2.",
+    done: true
   },
   {
     id: "provision-d1",
     title: "Provision a D1 database for gallery metadata, seeded from the current hardcoded array",
     path: "Cloudflare dashboard -> D1",
-    detail: "One row per image: id, R2 key/src, alt text, caption, category, display-order/span. Initial migration: copy the existing IMAGES array out of Gallery.astro into seed rows so nothing currently on the gallery page is lost."
+    detail: "Bound and live: wrangler.jsonc has a real d1_databases binding (kriyayogamission-admin-db) with the schema from migrations/0001_create_gallery_images.sql applied. Seeding from Gallery.astro's existing hardcoded array still needs to happen as part of the cross-repo Gallery.astro change below.",
+    done: true
   },
   {
     id: "admin-api-routes",
     title: "Build the admin Worker's API routes (TypeScript)",
     path: "kriyayogamission-admin worker code",
-    detail: "POST /api/gallery (validate file type/size, write to R2, insert D1 row), GET /api/gallery (list for the admin UI), PATCH /api/gallery/:id (edit caption/category/order), DELETE /api/gallery/:id. All routes sit behind the Cloudflare Access application -- no separate auth check needed beyond optionally validating the Access JWT."
+    detail: "Shipped: full CRUD (GET/POST /api/gallery, PATCH/DELETE /api/gallery/:id), bulk PATCH/DELETE /api/gallery/bulk, an unauthenticated published-only /api/public/gallery feed, and /images/:key for raw R2 bytes. See the Technical Design section above for the full route table.",
+    done: true
   },
   {
     id: "deploy-hook-wiring",
     title: "Wire up a Cloudflare Deploy Hook so publishing triggers a public-site rebuild",
     path: "kriyayogamission-dev project settings -> Deploy Hooks, called from the admin Worker",
-    detail: "After a successful R2 write + D1 insert, the admin Worker POSTs to the dev project's deploy hook URL. Test this path thoroughly on dev before wiring the production hook too."
+    detail: "Shipped (worker/lib/deploy-hook.ts): every gallery create/update/delete fires the dev project's Deploy Hook via ctx.waitUntil. An earlier GitHub-commit-based trigger was tried first and retired after persistent 525 errors reaching api.github.com -- the Deploy Hook approach replaced it and is the one actually in production. Production hook intentionally still not wired (see auto-publish-vs-draft decision).",
+    done: true
   },
   {
     id: "gallery-astro-d1-fetch",
     title: "Update the public site's Gallery.astro to fetch from D1 at build time instead of the hardcoded array",
     path: "kriyayogamission repo: src/components/Gallery.astro",
-    detail: "Cross-repo change -- happens in the main kriyayogamission repo, not the new admin repo. Astro's frontmatter can run a plain fetch() against Cloudflare's D1 REST API during astro build, replacing the static IMAGES array with live data while keeping the exact same generated HTML structure/categories/lightbox behavior."
+    detail: "Cross-repo change -- happens in the main kriyayogamission repo, not the new admin repo. Astro's frontmatter can run a plain fetch() against the admin Worker's unauthenticated /api/public/gallery feed during astro build, replacing the static IMAGES array with live data while keeping the exact same generated HTML structure/categories/lightbox behavior. Still outstanding -- needs explicit sign-off per the strict restriction banner above before touching that repo."
   },
   {
     id: "e2e-test-dev",
     title: "End-to-end test on dev before touching production",
     path: "admin.kriyayogamission.org (or dev equivalent) + dev.kriyayogamission.org/gallery",
-    detail: "Upload a real image through the admin UI, confirm it writes to R2/D1, confirm the deploy hook fires, confirm it shows up correctly categorized on the dev gallery page -- only then repeat for production."
+    detail: "Upload/delete flows are proven end-to-end against R2/D1 and the admin UI today. The remaining half of this test -- confirming a new image actually shows up correctly on the dev gallery page -- can't be fully verified until the Gallery.astro D1-fetch change above ships."
   }
 ];
 
@@ -388,7 +659,8 @@ const decisionItems = [
     id: "shared-d1-r2-vs-public-api",
     title: "Should the public site's build read D1/R2 directly, or should the admin Worker expose its own small public read-only API instead?",
     path: "Architecture boundary between the two repos",
-    detail: "Direct D1 REST API access from the public build is simplest to start (fewer moving parts). The alternative -- a small public GET /api/gallery-data endpoint served by the admin Worker itself -- gives a cleaner boundary (the main site never needs D1 credentials) at the cost of one more network hop during builds. Revisit once Phase 2 adds more content types beyond just the gallery."
+    detail: "RESOLVED, built: the admin Worker exposes an unauthenticated GET /api/public/gallery feed (published rows only) -- the public site's build never needs D1 credentials of its own. Still outstanding: actually wiring Gallery.astro to call it (see Phase 1 checklist).",
+    done: true
   }
 ];
 
@@ -397,7 +669,8 @@ const phase2Items = [
     id: "ga4-reporting-widget",
     title: "GA4 reporting dashboard inside the admin panel",
     path: "Google Analytics Data API (GA4 Reporting API v1)",
-    detail: "A read-only Google Cloud Service Account (Viewer role on the GA4 property) whose credentials live as an admin Worker secret, not committed anywhere. Admin dashboard shows pageviews, top pages, and the generate_lead conversion count (see the public site's DEPLOYMENT.md §12.3) without needing to leave the admin panel to check Google Analytics directly."
+    detail: "SHIPPED -- went further than originally scoped: KPI cards, timeseries, channel/device/new-vs-returning donuts, top pages, top countries, a realtime active-users badge, and an all-time total, with 7/30/90-day range selection. Also shipped a Search Console panel on the same tab (clicks/impressions/CTR/position with deltas, top queries, top pages, device breakdown), reusing the same dual OAuth/service-account Google auth layer. See the Technical Design / Functional Spec sections above for full detail.",
+    done: true
   },
   {
     id: "general-cms-expansion",
@@ -425,13 +698,56 @@ const phase2Items = [
   }
 ];
 
+const phase3Items = [
+  {
+    id: "cloudflare-web-analytics",
+    title: "Integrate Cloudflare Web Analytics / GraphQL Analytics API",
+    path: "Cloudflare GraphQL Analytics API, new admin Worker route + dashboard card",
+    detail: "Top-ranked recommendation. Surfaces bot traffic, WAF/firewall-blocked requests, cache hit ratio, edge response times, and traffic that never ran GA4's JS (ad-blockers, bots, crawlers) -- server-side truth GA4 structurally cannot see. Zero new Google-auth complexity; uses a Cloudflare API token, the same credential pattern this project already knows."
+  },
+  {
+    id: "ga4-bigquery-export",
+    title: "Link GA4 to BigQuery Export, scope a later query layer",
+    path: "GA4 Admin -> BigQuery Links (~10 min to link); separate project to query it",
+    detail: "Unlocks raw, unsampled, event-level data instead of the Data API's aggregated/sampled reports -- arbitrary SQL, custom funnels GA4's UI can't build. Linking is quick; actually querying it from the Worker (BigQuery client, billing account) is a bigger follow-on project worth scoping separately once the link itself is in place."
+  },
+  {
+    id: "crux-pagespeed-card",
+    title: "Add a CrUX / PageSpeed Insights card to the Analytics dashboard",
+    path: "PageSpeed Insights API (includes CrUX field data), simple API-key auth",
+    detail: "Cheap, fast win: real-world Core Web Vitals (LCP, INP, CLS) plus a Lighthouse-style lab score per URL. No OAuth/service-account plumbing needed -- just an API key, unlike every other Google integration in this project so far."
+  },
+  {
+    id: "youtube-business-profile-apis",
+    title: "Evaluate YouTube Data/Analytics API and Google Business Profile API",
+    path: "Conditional -- only if those channels/listings actually exist",
+    detail: "YouTube: view counts, watch time, audience retention -- only relevant if Kriya Yoga Mission has a channel with embedded videos. Business Profile: reviews, search appearances, direction requests, photo views -- only relevant if a physical center/ashram is listed on Google Maps. Confirm applicability before building either."
+  },
+  {
+    id: "ga4-admin-api-parked",
+    title: "GA4 Admin API -- explicitly parked",
+    path: "Google Analytics Admin API",
+    detail: "Myth-buster: this is a config/management API (data streams, custom dimensions, conversion events, user access, property settings), not a source of visitor insight. Low priority -- nice-to-have for setup/audit automation someday, not something this roadmap is chasing."
+  },
+  {
+    id: "analytics-hub-skip",
+    title: "Analytics Hub API -- explicitly out of scope, do not build",
+    path: "BigQuery Analytics Hub",
+    detail: "Myth-buster: despite the name, this is a BigQuery product for publishing/subscribing to shared datasets between organizations (e.g. buying a dataset from a vendor). It has nothing to do with website analytics and solves no problem this project has. Recorded here specifically so it isn't re-proposed later under a misleading name."
+  }
+];
+
 function cardHTML(item, idPrefix, badgeClass, badgeText, checked) {
+  const doneBadge = item.done
+    ? `<span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full" style="background:#dcfce7; color:#166534;">DONE</span>`
+    : "";
   return `
     <label class="step-card ${checked ? "done" : ""} flex items-start gap-3 bg-white rounded-xl border border-stone-200 shadow-sm p-4 cursor-pointer hover:border-stone-300 transition-colors" data-id="${idPrefix}${item.id}">
       <input type="checkbox" class="mt-1.5 w-4 h-4 accent-blue-600 shrink-0" ${checked ? "checked" : ""} />
       <div class="min-w-0">
         <div class="flex items-center gap-2 flex-wrap mb-1">
           <span class="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full ${badgeClass}">${badgeText}</span>
+          ${doneBadge}
           <span class="text-xs text-stone-400">${item.path}</span>
         </div>
         <p class="step-title font-medium text-stone-800">${item.title}</p>
@@ -466,6 +782,7 @@ function updateProgress() {
 renderChecklist("checklist-phase1", phase1Items, "admin-phase1-", "badge-phase1", "PHASE 1");
 renderChecklist("checklist-decision", decisionItems, "admin-decision-", "badge-decision", "DECISION NEEDED");
 renderChecklist("checklist-phase2", phase2Items, "admin-phase2-", "badge-phase2", "PHASE 2+");
+renderChecklist("checklist-phase3", phase3Items, "admin-phase3-", "badge-phase3", "YET TO DEVELOP");
 updateProgress();
 </script>
 </body>

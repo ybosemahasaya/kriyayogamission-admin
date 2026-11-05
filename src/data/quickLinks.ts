@@ -24,6 +24,11 @@ export const QUICK_LINKS: QuickLinkGroup[] = [
         url: "https://dash.cloudflare.com",
         description: "Workers, R2, D1, Zero Trust / Access, DNS",
       },
+      {
+        label: "Google Cloud Console",
+        url: "https://console.cloud.google.com/welcome/new?project=kriya-yoga-mission",
+        description: "GCP project backing the GA4 Data API (OAuth / service account)",
+      },
     ],
   },
   {

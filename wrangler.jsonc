@@ -42,7 +42,15 @@
   // the service account credentials below. Those credentials
   // (GA4_SERVICE_ACCOUNT_EMAIL, GA4_SERVICE_ACCOUNT_PRIVATE_KEY) are real
   // secrets and are set via `wrangler secret put`, never committed here.
+  //
+  // IMPORTANT: unlike secrets, `vars` are NOT persistent across deploys --
+  // they live in this file and get fully overwritten by whatever's
+  // committed every time `wrangler deploy` runs (including Cloudflare's
+  // automatic Workers Build on every push). If you ever change this value
+  // by hand in the Cloudflare dashboard instead of here, the next deploy
+  // will silently revert it and break Analytics again. Always edit it
+  // here, not in the dashboard.
   "vars": {
-    "GA4_PROPERTY_ID": "411977548"
+    "GA4_PROPERTY_ID": "558900253"
   }
 }

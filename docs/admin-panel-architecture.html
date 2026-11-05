@@ -74,8 +74,8 @@
           <p class="text-stone-600 mt-1">Multi-file upload, drafts vs. published tab, search/filter by category, inline edit, bulk select/edit/delete -- backed by real R2 + D1.</p>
         </div>
         <div class="bg-white rounded-lg border border-green-200 p-3">
-          <strong class="text-green-800">Auto-publish pipeline</strong>
-          <p class="text-stone-600 mt-1">Every gallery change fires a Cloudflare Deploy Hook that rebuilds the public site's dev environment automatically -- no manual redeploy step.</p>
+          <strong class="text-green-800">Auto-publish pipeline (dev + production)</strong>
+          <p class="text-stone-600 mt-1">Every gallery change fires Cloudflare Deploy Hooks for <strong>both</strong> the public site's dev <em>and production</em> environments at the same time (added 2026-11-06, per explicit request) -- no manual redeploy step, and no more dev-only lag before photos reach kriyayogamission.org/gallery.</p>
         </div>
         <div class="bg-white rounded-lg border border-green-200 p-3">
           <strong class="text-green-800">Analytics dashboard (GA4)</strong>
@@ -95,11 +95,14 @@
         </div>
       </div>
       <p class="text-green-700 leading-relaxed mt-3 text-sm">
-        <strong>Still genuinely open:</strong> confirming the admin domain's custom-domain DNS/Access
-        application is finalized exactly as documented (verify in the Cloudflare dashboard, not
-        re-litigated here), wiring <code class="bg-green-100 px-1 rounded">Gallery.astro</code> to read
-        from D1 at build time instead of its hardcoded array (the one explicitly-approved cross-repo
-        change), and everything under the new "Analytics API Expansion" section below.
+        <strong>Still genuinely open:</strong> the <code class="bg-green-100 px-1 rounded">PROD_DEPLOY_HOOK_URL</code>
+        secret must still be created (a Deploy Hook on the production <code class="bg-green-100 px-1 rounded">kriyayogamission</code>
+        project's <code class="bg-green-100 px-1 rounded">main</code> branch) and set via
+        <code class="bg-green-100 px-1 rounded">wrangler secret put</code> before the dual dev+production
+        rebuild trigger actually fires for production (the code ships as a silent no-op until that
+        secret exists); confirming the admin domain's custom-domain DNS/Access application is finalized
+        exactly as documented (verify in the Cloudflare dashboard, not re-litigated here); and everything
+        under the new "Analytics API Expansion" section below.
       </p>
     </section>
 
@@ -402,16 +405,26 @@
       <h3 class="font-semibold text-stone-800 mb-2 mt-4">Deploy automation</h3>
       <p class="text-stone-600 leading-relaxed">
         Every create/update/delete on a gallery image fires-and-forgets (<code class="bg-stone-100 px-1 rounded">ctx.waitUntil</code>)
-        a POST to the public site's <strong>Cloudflare Deploy Hook</strong> URL for the
-        <code class="bg-stone-100 px-1 rounded">dev</code> branch (<code class="bg-stone-100 px-1 rounded">worker/lib/deploy-hook.ts</code>),
+        a POST to a <strong>Cloudflare Deploy Hook</strong> URL (<code class="bg-stone-100 px-1 rounded">worker/lib/deploy-hook.ts</code>),
         the same mechanism a normal <code class="bg-stone-100 px-1 rounded">git push</code> triggers --
         so the next build of the public site's <code class="bg-stone-100 px-1 rounded">/gallery</code>
-        page will eventually pick up the change. This replaced an earlier, less reliable approach that
-        pushed an empty commit via the GitHub API to force a rebuild, which was retired after hitting
-        persistent <code class="bg-stone-100 px-1 rounded">525</code> errors reaching
-        <code class="bg-stone-100 px-1 rounded">api.github.com</code>. The Deploy Hook is dev-only by
-        design -- there is deliberately no production equivalent wired up yet (see the "Needs your
-        decision" section for auto-publish vs. draft, which interacts with this).
+        page picks up the change. This replaced an earlier, less reliable approach that pushed an empty
+        commit via the GitHub API to force a rebuild, which was retired after hitting persistent
+        <code class="bg-stone-100 px-1 rounded">525</code> errors reaching
+        <code class="bg-stone-100 px-1 rounded">api.github.com</code>. Originally dev-only; extended
+        2026-11-06, per explicit request, to fire <strong>two</strong> hooks in parallel --
+        <code class="bg-stone-100 px-1 rounded">DEPLOY_HOOK_URL</code> for the
+        <code class="bg-stone-100 px-1 rounded">kriyayogamission-dev</code> project's <code class="bg-stone-100 px-1 rounded">dev</code>
+        branch, and <code class="bg-stone-100 px-1 rounded">PROD_DEPLOY_HOOK_URL</code> for the
+        production <code class="bg-stone-100 px-1 rounded">kriyayogamission</code> project's
+        <code class="bg-stone-100 px-1 rounded">main</code> branch -- so an admin upload now reaches
+        both <code class="bg-stone-100 px-1 rounded">dev.kriyayogamission.org/gallery</code> and
+        <code class="bg-stone-100 px-1 rounded">kriyayogamission.org/gallery</code> at the same time.
+        This only works once <code class="bg-stone-100 px-1 rounded">ADMIN_GALLERY_API_URL</code> is
+        also set as a <strong>Build</strong> variable (not Runtime) on the production project --
+        Gallery.astro's fetch logic was already environment-agnostic, it just needed something to
+        actually trigger a production build. Each hook is independent and a silent no-op if its URL
+        isn't set, so one missing/misconfigured hook never blocks the other.
       </p>
     </section>
 
@@ -611,22 +624,23 @@ const phase1Items = [
   },
   {
     id: "deploy-hook-wiring",
-    title: "Wire up a Cloudflare Deploy Hook so publishing triggers a public-site rebuild",
-    path: "kriyayogamission-dev project settings -> Deploy Hooks, called from the admin Worker",
-    detail: "Shipped (worker/lib/deploy-hook.ts): every gallery create/update/delete fires the dev project's Deploy Hook via ctx.waitUntil. An earlier GitHub-commit-based trigger was tried first and retired after persistent 525 errors reaching api.github.com -- the Deploy Hook approach replaced it and is the one actually in production. Production hook intentionally still not wired (see auto-publish-vs-draft decision).",
+    title: "Wire up Cloudflare Deploy Hooks so publishing triggers a public-site rebuild, on dev AND production",
+    path: "kriyayogamission-dev + kriyayogamission project settings -> Deploy Hooks, called from the admin Worker",
+    detail: "Shipped (worker/lib/deploy-hook.ts): every gallery create/update/delete fires both the dev project's Deploy Hook (DEPLOY_HOOK_URL) and, as of 2026-11-06 per explicit request, the production project's Deploy Hook (PROD_DEPLOY_HOOK_URL) via ctx.waitUntil, in parallel. An earlier GitHub-commit-based trigger was tried first and retired after persistent 525 errors reaching api.github.com. Each hook is a silent no-op if its URL secret isn't set, independent of the other.",
     done: true
   },
   {
     id: "gallery-astro-d1-fetch",
-    title: "Update the public site's Gallery.astro to fetch from D1 at build time instead of the hardcoded array",
+    title: "Update the public site's Gallery.astro to fetch admin-uploaded photos at build time, on both dev and production",
     path: "kriyayogamission repo: src/components/Gallery.astro",
-    detail: "Cross-repo change -- happens in the main kriyayogamission repo, not the new admin repo. Astro's frontmatter can run a plain fetch() against the admin Worker's unauthenticated /api/public/gallery feed during astro build, replacing the static IMAGES array with live data while keeping the exact same generated HTML structure/categories/lightbox behavior. Still outstanding -- needs explicit sign-off per the strict restriction banner above before touching that repo."
+    detail: "Cross-repo change -- done, with explicit sign-off, on the kriyayogamission repo's dev branch: Gallery.astro's frontmatter fetches the admin Worker's unauthenticated /api/public/gallery feed during astro build (guarded entirely by the ADMIN_GALLERY_API_URL Build variable) and merges the results into the static IMAGES array, keeping the exact same generated HTML structure/categories/lightbox behavior. As of 2026-11-06 this variable is set as a Build variable on both the kriyayogamission-dev and production kriyayogamission Cloudflare projects, making the fetch logic itself environment-agnostic -- see the 'deploy-hook-wiring' item above for the other half (actually triggering a production build).",
+    done: true
   },
   {
     id: "e2e-test-dev",
-    title: "End-to-end test on dev before touching production",
-    path: "admin.kriyayogamission.org (or dev equivalent) + dev.kriyayogamission.org/gallery",
-    detail: "Upload/delete flows are proven end-to-end against R2/D1 and the admin UI today. The remaining half of this test -- confirming a new image actually shows up correctly on the dev gallery page -- can't be fully verified until the Gallery.astro D1-fetch change above ships."
+    title: "End-to-end test the full upload -> dev -> production pipeline",
+    path: "admin.kriyayogamission.org + dev.kriyayogamission.org/gallery + kriyayogamission.org/gallery",
+    detail: "Upload/delete flows are proven end-to-end against R2/D1, the admin UI, and the dev gallery page today. Still needs one real verification pass after PROD_DEPLOY_HOOK_URL is set: upload a test photo, confirm both the dev and production Deploy Hooks fire, and confirm the photo shows up correctly categorized on both dev.kriyayogamission.org/gallery and kriyayogamission.org/gallery within about a minute."
   }
 ];
 

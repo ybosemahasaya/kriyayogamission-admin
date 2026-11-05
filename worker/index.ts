@@ -41,7 +41,12 @@ export default {
         return await handleAnalyticsRealtimeRequest(request, env);
       } catch (err) {
         console.error("Analytics realtime API error:", err);
-        return errorResponse("Internal server error", 500);
+        // Surface the real reason (Google's own error text, e.g. "API not
+        // enabled" or "permission denied") -- this route sits behind
+        // Cloudflare Access, so an authenticated admin seeing the cause
+        // is worth more here than hiding implementation details.
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
       }
     }
 
@@ -50,7 +55,8 @@ export default {
         return await handleAnalyticsSummaryRequest(request, env);
       } catch (err) {
         console.error("Analytics API error:", err);
-        return errorResponse("Internal server error", 500);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
       }
     }
 

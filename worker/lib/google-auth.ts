@@ -18,7 +18,14 @@
  */
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
-const READONLY_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+
+// Every Google API this Worker talks to needs its own scope on the JWT
+// assertion (service-account flow only -- OAuth refresh tokens carry
+// whatever scope was granted at consent time and can't be widened per
+// call). Keep them together here so adding a new integration is a
+// one-line addition, not a hunt through client files.
+export const GA4_READONLY_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+export const SEARCH_CONSOLE_READONLY_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 
 export interface ServiceAccountCredentials {
   kind: "service_account";
@@ -40,18 +47,23 @@ interface CachedToken {
   expiresAt: number; // epoch ms
 }
 
-// Module-level cache: persists across requests within the same Worker
-// isolate. Google access tokens live for an hour; re-authenticating on
-// every single dashboard request would be wasteful for what's a
-// low-traffic, admin-only dashboard. Not shared across isolates/colos --
-// that's fine, worst case is an extra token fetch now and then, never a
-// correctness problem.
-let cachedToken: CachedToken | null = null;
+// Module-level cache, keyed by scope: persists across requests within
+// the same Worker isolate. Google access tokens live for an hour;
+// re-authenticating on every single dashboard request would be wasteful
+// for what's a low-traffic, admin-only dashboard. Keyed by scope because
+// GA4 and Search Console each need their own token (the OAuth branch
+// also keys by scope even though it ignores the value, so the two
+// integrations' refresh tokens -- if ever different -- never collide).
+// Not shared across isolates/colos -- that's fine, worst case is an
+// extra token fetch now and then, never a correctness problem.
+const tokenCache = new Map<string, CachedToken>();
 
-export async function getGoogleAccessToken(creds: GoogleCredentials): Promise<string> {
+export async function getGoogleAccessToken(creds: GoogleCredentials, scope: string): Promise<string> {
   const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt - 60_000 > now) {
-    return cachedToken.accessToken;
+  const cacheKey = creds.kind === "oauth_refresh_token" ? `oauth:${creds.refreshToken}` : `sa:${creds.email}:${scope}`;
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expiresAt - 60_000 > now) {
+    return cached.accessToken;
   }
 
   const body =
@@ -64,7 +76,7 @@ export async function getGoogleAccessToken(creds: GoogleCredentials): Promise<st
         })
       : new URLSearchParams({
           grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-          assertion: await buildSignedJwt(creds),
+          assertion: await buildSignedJwt(creds, scope),
         });
 
   const res = await fetch(TOKEN_URL, {
@@ -79,16 +91,16 @@ export async function getGoogleAccessToken(creds: GoogleCredentials): Promise<st
   }
 
   const data = (await res.json()) as { access_token: string; expires_in: number };
-  cachedToken = { accessToken: data.access_token, expiresAt: now + data.expires_in * 1000 };
+  tokenCache.set(cacheKey, { accessToken: data.access_token, expiresAt: now + data.expires_in * 1000 });
   return data.access_token;
 }
 
-async function buildSignedJwt(creds: ServiceAccountCredentials): Promise<string> {
+async function buildSignedJwt(creds: ServiceAccountCredentials, scope: string): Promise<string> {
   const nowSec = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
   const claims = {
     iss: creds.email,
-    scope: READONLY_SCOPE,
+    scope,
     aud: TOKEN_URL,
     iat: nowSec,
     exp: nowSec + 3600,
@@ -125,4 +137,38 @@ function base64urlFromBytes(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** The subset of Env every Google-backed integration needs -- GA4 and
+ * Search Console share one credential pair (same service account, or
+ * same OAuth trio), each requesting its own scope at token-fetch time.
+ * Keeping this resolver here (not duplicated per API module) means a
+ * credential rotation or auth-flavor switch is a one-file change. */
+export interface GoogleAuthEnv {
+  GA4_OAUTH_CLIENT_ID?: string;
+  GA4_OAUTH_CLIENT_SECRET?: string;
+  GA4_OAUTH_REFRESH_TOKEN?: string;
+  GA4_SERVICE_ACCOUNT_EMAIL?: string;
+  GA4_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
+}
+
+export function resolveGoogleCredentials(env: GoogleAuthEnv): GoogleCredentials | null {
+  if (env.GA4_OAUTH_CLIENT_ID && env.GA4_OAUTH_CLIENT_SECRET && env.GA4_OAUTH_REFRESH_TOKEN) {
+    return {
+      kind: "oauth_refresh_token",
+      clientId: env.GA4_OAUTH_CLIENT_ID,
+      clientSecret: env.GA4_OAUTH_CLIENT_SECRET,
+      refreshToken: env.GA4_OAUTH_REFRESH_TOKEN,
+    };
+  }
+
+  if (env.GA4_SERVICE_ACCOUNT_EMAIL && env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY) {
+    return {
+      kind: "service_account",
+      email: env.GA4_SERVICE_ACCOUNT_EMAIL,
+      privateKey: env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY,
+    };
+  }
+
+  return null;
 }

@@ -11,7 +11,12 @@ import type {
   AnalyticsTopPage,
 } from "../../shared/analytics";
 import { batchRunReports, runRealtimeReport, type GA4ReportResponse, type GA4Row } from "../lib/ga4-client";
-import { getGoogleAccessToken, type GoogleCredentials } from "../lib/google-auth";
+import {
+  GA4_READONLY_SCOPE,
+  getGoogleAccessToken,
+  resolveGoogleCredentials,
+  type GoogleCredentials,
+} from "../lib/google-auth";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
 
@@ -53,31 +58,9 @@ interface Credentials {
 // supported; whichever trio/pair is fully present wins.
 function requireCredentials(env: Env): Credentials | null {
   if (!env.GA4_PROPERTY_ID) return null;
-
-  if (env.GA4_OAUTH_CLIENT_ID && env.GA4_OAUTH_CLIENT_SECRET && env.GA4_OAUTH_REFRESH_TOKEN) {
-    return {
-      propertyId: env.GA4_PROPERTY_ID,
-      auth: {
-        kind: "oauth_refresh_token",
-        clientId: env.GA4_OAUTH_CLIENT_ID,
-        clientSecret: env.GA4_OAUTH_CLIENT_SECRET,
-        refreshToken: env.GA4_OAUTH_REFRESH_TOKEN,
-      },
-    };
-  }
-
-  if (env.GA4_SERVICE_ACCOUNT_EMAIL && env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY) {
-    return {
-      propertyId: env.GA4_PROPERTY_ID,
-      auth: {
-        kind: "service_account",
-        email: env.GA4_SERVICE_ACCOUNT_EMAIL,
-        privateKey: env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY,
-      },
-    };
-  }
-
-  return null;
+  const auth = resolveGoogleCredentials(env);
+  if (!auth) return null;
+  return { propertyId: env.GA4_PROPERTY_ID, auth };
 }
 
 function dimensionValue(row: GA4Row | undefined, index: number): string {
@@ -96,7 +79,7 @@ export async function handleAnalyticsSummaryRequest(request: Request, env: Env):
   const range = parseRange(new URL(request.url).searchParams.get("range"));
   const { current, previous } = buildDateRanges(range);
   const property = `properties/${creds.propertyId}`;
-  const accessToken = await getGoogleAccessToken(creds.auth);
+  const accessToken = await getGoogleAccessToken(creds.auth, GA4_READONLY_SCOPE);
 
   // Split across two batchRunReports calls -- Google caps each batch at
   // 5 report requests (see ga4-client.ts).
@@ -189,7 +172,7 @@ export async function handleAnalyticsRealtimeRequest(_request: Request, env: Env
   const creds = requireCredentials(env);
   if (!creds) return errorResponse("Analytics is not configured yet.", 503);
 
-  const accessToken = await getGoogleAccessToken(creds.auth);
+  const accessToken = await getGoogleAccessToken(creds.auth, GA4_READONLY_SCOPE);
   const report = await runRealtimeReport(creds.propertyId, accessToken);
   const payload: AnalyticsRealtimeDTO = { activeUsers: metricValue(report.rows?.[0], 0) };
   return json(payload);

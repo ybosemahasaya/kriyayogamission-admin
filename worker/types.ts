@@ -41,6 +41,13 @@ export interface Env {
   GA4_OAUTH_REFRESH_TOKEN?: string;
   GA4_SERVICE_ACCOUNT_EMAIL?: string;
   GA4_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
+  /** Search Console property identifier, e.g. "sc-domain:kriyayogamission.org"
+   * for a domain property (vs. a URL-prefix property's literal site URL).
+   * Reuses the exact same GA4_* credentials above -- Search Console is just
+   * a different scope/API on the same service account or OAuth grant, see
+   * worker/lib/google-auth.ts resolveGoogleCredentials(). Not sensitive,
+   * same reasoning as GA4_PROPERTY_ID. */
+  GSC_SITE_URL?: string;
 }
 
 export interface GalleryImageRow {

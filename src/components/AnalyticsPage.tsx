@@ -6,6 +6,7 @@ import { AnalyticsDonutChart } from "./analytics/AnalyticsDonutChart";
 import { AnalyticsKpiCards } from "./analytics/AnalyticsKpiCards";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
 import { AnalyticsTimeseriesChart } from "./analytics/AnalyticsTimeseriesChart";
+import { SearchConsolePanel } from "./SearchConsolePanel";
 import { formatDuration, formatNumber } from "../lib/format";
 
 const RANGE_OPTIONS: { value: AnalyticsRange; label: string }[] = [
@@ -96,6 +97,8 @@ export function AnalyticsPage({ theme }: { theme: Theme }) {
               rows={data.geo.map((g) => [g.country, formatNumber(g.sessions), formatNumber(g.users)])}
             />
           </div>
+
+          <SearchConsolePanel range={range} theme={theme} />
         </>
       )}
     </div>

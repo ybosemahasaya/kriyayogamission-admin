@@ -2,6 +2,7 @@ import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from ".
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
 import { handlePublicGalleryRequest } from "./api/public-gallery";
+import { handleSearchConsoleRequest } from "./api/search-console";
 import { errorResponse } from "./lib/http";
 import type { Env } from "./types";
 
@@ -55,6 +56,16 @@ export default {
         return await handleAnalyticsSummaryRequest(request, env);
       } catch (err) {
         console.error("Analytics API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    if (url.pathname === "/api/search-console" && request.method === "GET") {
+      try {
+        return await handleSearchConsoleRequest(request, env);
+      } catch (err) {
+        console.error("Search Console API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

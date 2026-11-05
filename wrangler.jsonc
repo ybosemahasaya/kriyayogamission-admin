@@ -51,6 +51,12 @@
   // will silently revert it and break Analytics again. Always edit it
   // here, not in the dashboard.
   "vars": {
-    "GA4_PROPERTY_ID": "558900253"
+    "GA4_PROPERTY_ID": "558900253",
+    // Matches the resource_id used by the existing Search Console quick
+    // link (sc-domain properties cover http+https+all subdomains as one
+    // unit -- confirm this is actually how the property is verified in
+    // Search Console before relying on it; a URL-prefix property would
+    // need the literal verified URL instead, e.g. "https://kriyayogamission.org/").
+    "GSC_SITE_URL": "sc-domain:kriyayogamission.org"
   }
 }

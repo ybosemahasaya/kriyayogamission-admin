@@ -61,8 +61,12 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  margin: 1rem 0 0.5rem;
   padding: 0 0.75rem;
+}
+
+.sidebar-nav-label:first-child {
+  margin-top: 0;
 }
 
 .sidebar-nav-item {
@@ -75,6 +79,12 @@
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 600;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .sidebar-nav-item.active {
@@ -729,4 +739,74 @@
 .upload-progress-item-error .upload-progress-percent {
   color: var(--danger);
   font-weight: 600;
+}
+
+/* ---------- Quick Links page ---------- */
+
+.quick-links-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.quick-links-group-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.quick-links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.quick-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.quick-link-card:hover,
+.quick-link-card:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.quick-link-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.quick-link-card-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.quick-link-card-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.quick-link-card:hover .quick-link-card-icon {
+  color: var(--accent);
+}
+
+.quick-link-card-description {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }

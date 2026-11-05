@@ -5,7 +5,8 @@ import { BulkEditModal } from "./components/BulkEditModal";
 import { EditImageModal } from "./components/EditImageModal";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { Modal } from "./components/Modal";
-import { Sidebar } from "./components/Sidebar";
+import { QuickLinksPage } from "./components/QuickLinksPage";
+import { Sidebar, type SidebarView } from "./components/Sidebar";
 import { UploadForm } from "./components/UploadForm";
 import { UploadProgressPanel } from "./components/UploadProgressPanel";
 import { PlusIcon, SearchIcon } from "./components/icons";
@@ -18,6 +19,7 @@ import "./App.css";
 type Tab = "published" | "drafts";
 
 function App() {
+  const [view, setView] = useState<SidebarView>("gallery");
   const [images, setImages] = useState<GalleryImageDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,78 +100,90 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar theme={theme} onToggleTheme={toggleTheme} />
+      <Sidebar theme={theme} onToggleTheme={toggleTheme} activeView={view} onNavigate={setView} />
 
       <main className="app-main">
-        <header className="main-header">
-          <h1>Gallery</h1>
-          <p>Manage the photos shown on the public Kriya Yoga Mission gallery.</p>
-        </header>
+        {view === "links" ? (
+          <>
+            <header className="main-header">
+              <h1>Quick Links</h1>
+              <p>Jump straight to the external tools and dashboards this project depends on.</p>
+            </header>
+            <QuickLinksPage />
+          </>
+        ) : (
+          <>
+            <header className="main-header">
+              <h1>Gallery</h1>
+              <p>Manage the photos shown on the public Kriya Yoga Mission gallery.</p>
+            </header>
 
-        <div className="tabs">
-          <button
-            type="button"
-            className={tab === "published" ? "tab active" : "tab"}
-            onClick={() => setTab("published")}
-          >
-            Published <span className="tab-count">{publishedCount}</span>
-          </button>
-          <button type="button" className={tab === "drafts" ? "tab active" : "tab"} onClick={() => setTab("drafts")}>
-            Drafts <span className="tab-count">{draftCount}</span>
-          </button>
-        </div>
+            <div className="tabs">
+              <button
+                type="button"
+                className={tab === "published" ? "tab active" : "tab"}
+                onClick={() => setTab("published")}
+              >
+                Published <span className="tab-count">{publishedCount}</span>
+              </button>
+              <button type="button" className={tab === "drafts" ? "tab active" : "tab"} onClick={() => setTab("drafts")}>
+                Drafts <span className="tab-count">{draftCount}</span>
+              </button>
+            </div>
 
-        <div className="toolbar">
-          <div className="search-input">
-            <SearchIcon />
-            <input
-              type="text"
-              placeholder="Search caption or alt text..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+            <div className="toolbar">
+              <div className="search-input">
+                <SearchIcon />
+                <input
+                  type="text"
+                  placeholder="Search caption or alt text..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <select
+                className="category-select"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value as GalleryCategory | "all")}
+              >
+                <option value="all">All categories</option>
+                {GALLERY_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+
+              <button type="button" className="btn-primary" onClick={() => setShowUpload(true)}>
+                <PlusIcon /> Add Photo
+              </button>
+            </div>
+
+            <BulkActionBar
+              count={selectedIds.size}
+              onBulkEdit={() => setShowBulkEdit(true)}
+              onBulkDelete={handleBulkDelete}
+              onClear={() => setSelectedIds(new Set())}
             />
-          </div>
 
-          <select
-            className="category-select"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as GalleryCategory | "all")}
-          >
-            <option value="all">All categories</option>
-            {GALLERY_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-
-          <button type="button" className="btn-primary" onClick={() => setShowUpload(true)}>
-            <PlusIcon /> Add Photo
-          </button>
-        </div>
-
-        <BulkActionBar
-          count={selectedIds.size}
-          onBulkEdit={() => setShowBulkEdit(true)}
-          onBulkDelete={handleBulkDelete}
-          onClear={() => setSelectedIds(new Set())}
-        />
-
-        {loading && <p className="empty-state">Loading...</p>}
-        {error && <p className="form-error">{error}</p>}
-        {!loading && !error && (
-          <GalleryGrid
-            images={filteredImages}
-            emptyMessage={
-              tab === "published"
-                ? "No published photos match the current filters."
-                : "No drafts -- unpublish a photo to park it here."
-            }
-            onChanged={refresh}
-            onEdit={setEditingImage}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-          />
+            {loading && <p className="empty-state">Loading...</p>}
+            {error && <p className="form-error">{error}</p>}
+            {!loading && !error && (
+              <GalleryGrid
+                images={filteredImages}
+                emptyMessage={
+                  tab === "published"
+                    ? "No published photos match the current filters."
+                    : "No drafts -- unpublish a photo to park it here."
+                }
+                onChanged={refresh}
+                onEdit={setEditingImage}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+              />
+            )}
+          </>
         )}
       </main>
 

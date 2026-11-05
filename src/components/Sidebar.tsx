@@ -1,15 +1,16 @@
 import type { Theme } from "../hooks/useTheme";
-import { ImageIcon, MoonIcon, SunIcon } from "./icons";
+import { ImageIcon, LinkIcon, MoonIcon, SunIcon } from "./icons";
+
+export type SidebarView = "gallery" | "links";
 
 interface Props {
   theme: Theme;
   onToggleTheme: () => void;
+  activeView: SidebarView;
+  onNavigate: (view: SidebarView) => void;
 }
 
-/** Just one real section today (Gallery) -- resist the urge to pad this
- * out with disabled placeholder nav items for features that don't exist
- * yet (YAGNI). Add more entries here when Phase 2+ actually ships. */
-export function Sidebar({ theme, onToggleTheme }: Props) {
+export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -22,10 +23,24 @@ export function Sidebar({ theme, onToggleTheme }: Props) {
 
       <nav className="sidebar-nav">
         <span className="sidebar-nav-label">Content</span>
-        <a className="sidebar-nav-item active" href="#gallery">
+        <button
+          type="button"
+          className={activeView === "gallery" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("gallery")}
+        >
           <ImageIcon />
           Gallery
-        </a>
+        </button>
+
+        <span className="sidebar-nav-label">Resources</span>
+        <button
+          type="button"
+          className={activeView === "links" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("links")}
+        >
+          <LinkIcon />
+          Quick Links
+        </button>
       </nav>
 
       <div className="sidebar-footer">

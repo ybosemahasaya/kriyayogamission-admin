@@ -33,7 +33,10 @@ export function useAnalytics(range: AnalyticsRange): UseAnalyticsResult {
           setNotConfigured(true);
           return null;
         }
-        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(body.error ?? `Request failed (${res.status})`);
+        }
         return (await res.json()) as AnalyticsDTO;
       })
       .then((result) => setData(result))
@@ -50,11 +53,19 @@ export function useAnalytics(range: AnalyticsRange): UseAnalyticsResult {
 
     function pollRealtime() {
       fetch("/api/analytics/realtime")
-        .then((res) => (res.ok ? (res.json() as Promise<AnalyticsRealtimeDTO>) : null))
+        .then(async (res) => {
+          if (res.ok) return res.json() as Promise<AnalyticsRealtimeDTO>;
+          const body = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(body.error ?? `Request failed (${res.status})`);
+        })
         .then((result) => {
           if (!cancelled) setRealtimeUsers(result?.activeUsers ?? null);
         })
-        .catch(() => {
+        .catch((err) => {
+          // Realtime is a small secondary widget -- a failure here
+          // shouldn't block the rest of the dashboard, but it's still
+          // worth seeing in devtools instead of vanishing silently.
+          console.error("Realtime analytics fetch failed:", err instanceof Error ? err.message : err);
           if (!cancelled) setRealtimeUsers(null);
         });
     }

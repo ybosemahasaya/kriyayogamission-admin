@@ -927,3 +927,144 @@
 .profile-menu-item:hover {
   background: var(--surface);
 }
+
+/* ---------- Analytics page ---------- */
+
+.analytics-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.analytics-toolbar {
+  justify-content: space-between;
+}
+
+.analytics-realtime-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.analytics-realtime-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
+}
+
+.analytics-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.analytics-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.analytics-kpi-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.analytics-kpi-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.analytics-kpi-delta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.analytics-kpi-delta-up {
+  color: #34d399;
+}
+
+.analytics-kpi-delta-down {
+  color: var(--danger);
+}
+
+.analytics-kpi-delta-flat {
+  color: var(--text-muted);
+}
+
+.analytics-chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.analytics-chart-card {
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.analytics-chart-card h3 {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.analytics-chart-canvas-wrap {
+  position: relative;
+  height: 280px;
+}
+
+.analytics-chart-canvas-wrap-sm {
+  height: 220px;
+}
+
+.analytics-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.analytics-table th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+.analytics-table td {
+  padding: 0.55rem 0.6rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.analytics-table tr:last-child td {
+  border-bottom: none;
+}

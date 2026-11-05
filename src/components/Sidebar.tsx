@@ -1,7 +1,7 @@
 import type { Theme } from "../hooks/useTheme";
-import { ImageIcon, LinkIcon, MoonIcon, SunIcon } from "./icons";
+import { BarChartIcon, ImageIcon, LinkIcon, MoonIcon, SunIcon } from "./icons";
 
-export type SidebarView = "gallery" | "links";
+export type SidebarView = "gallery" | "links" | "analytics";
 
 interface Props {
   theme: Theme;
@@ -33,6 +33,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         </button>
 
         <span className="sidebar-nav-label">Resources</span>
+        <button
+          type="button"
+          className={activeView === "analytics" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("analytics")}
+        >
+          <BarChartIcon />
+          Analytics
+        </button>
         <button
           type="button"
           className={activeView === "links" ? "sidebar-nav-item active" : "sidebar-nav-item"}

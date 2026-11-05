@@ -1,3 +1,4 @@
+import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
 import { handlePublicGalleryRequest } from "./api/public-gallery";
@@ -30,6 +31,27 @@ export default {
     if (url.pathname === "/api/me" && request.method === "GET") {
       const email = request.headers.get("Cf-Access-Authenticated-User-Email");
       return Response.json({ email: email ?? null });
+    }
+
+    // Realtime checked before the generic /api/analytics matcher below
+    // for the same reason /api/gallery/bulk is checked before /api/gallery
+    // -- otherwise "realtime" risks being parsed as a route param.
+    if (url.pathname === "/api/analytics/realtime" && request.method === "GET") {
+      try {
+        return await handleAnalyticsRealtimeRequest(request, env);
+      } catch (err) {
+        console.error("Analytics realtime API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    if (url.pathname === "/api/analytics" && request.method === "GET") {
+      try {
+        return await handleAnalyticsSummaryRequest(request, env);
+      } catch (err) {
+        console.error("Analytics API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
     }
 
     // Everything this Worker owns lives under /api/* (plus /images/*, see

@@ -35,5 +35,14 @@
 
   "observability": {
     "enabled": true
+  },
+
+  // Not sensitive -- GA4 property IDs are visible in Google's own UI URLs
+  // to anyone with view access, and grant nothing on their own without
+  // the service account credentials below. Those credentials
+  // (GA4_SERVICE_ACCOUNT_EMAIL, GA4_SERVICE_ACCOUNT_PRIVATE_KEY) are real
+  // secrets and are set via `wrangler secret put`, never committed here.
+  "vars": {
+    "GA4_PROPERTY_ID": "411977548"
   }
 }

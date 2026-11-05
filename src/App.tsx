@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { bulkDeleteImages, listImages } from "./api/gallery";
+import { AnalyticsPage } from "./components/AnalyticsPage";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { BulkEditModal } from "./components/BulkEditModal";
 import { EditImageModal } from "./components/EditImageModal";
@@ -104,7 +105,15 @@ function App() {
       <Sidebar theme={theme} onToggleTheme={toggleTheme} activeView={view} onNavigate={setView} />
 
       <main className="app-main">
-        {view === "links" ? (
+        {view === "analytics" ? (
+          <>
+            <header className="main-header">
+              <h1>Analytics</h1>
+              <p>Traffic and engagement for kriyayogamission.org, straight from GA4.</p>
+            </header>
+            <AnalyticsPage theme={theme} />
+          </>
+        ) : view === "links" ? (
           <>
             <header className="main-header">
               <h1>Quick Links</h1>

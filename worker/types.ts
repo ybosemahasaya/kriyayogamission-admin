@@ -25,6 +25,16 @@ export interface Env {
    * changes; see worker/lib/deploy-hook.ts. Dev-only by design: there is
    * deliberately no production equivalent configured. */
   DEPLOY_HOOK_URL?: string;
+  /** GA4 Data API credentials for the Analytics dashboard. GA4_PROPERTY_ID
+   * is not sensitive (just an identifier, visible in GA's own UI URLs)
+   * and lives as a plain var in wrangler.jsonc; the service account
+   * email+key are real credentials and must be set via `wrangler secret
+   * put`, never committed. All three optional so the Worker still runs
+   * with a clear 503 (see worker/api/analytics.ts) before they're
+   * configured, same pattern as GALLERY_BUCKET/DB above. */
+  GA4_PROPERTY_ID?: string;
+  GA4_SERVICE_ACCOUNT_EMAIL?: string;
+  GA4_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
 }
 
 export interface GalleryImageRow {

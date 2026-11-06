@@ -1,7 +1,7 @@
 import type { Theme } from "../hooks/useTheme";
-import { BarChartIcon, ImageIcon, LinkIcon, MoonIcon, ShieldCheckIcon, SunIcon } from "./icons";
+import { BarChartIcon, ImageIcon, LinkIcon, MoonIcon, SearchIcon, ShieldCheckIcon, SunIcon } from "./icons";
 
-export type SidebarView = "gallery" | "links" | "analytics" | "site-audit";
+export type SidebarView = "gallery" | "links" | "ga4" | "search-console" | "site-audit";
 
 interface Props {
   theme: Theme;
@@ -32,15 +32,25 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
           Gallery
         </button>
 
-        <span className="sidebar-nav-label">Resources</span>
+        <span className="sidebar-nav-label">Analytics</span>
         <button
           type="button"
-          className={activeView === "analytics" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-          onClick={() => onNavigate("analytics")}
+          className={activeView === "ga4" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("ga4")}
         >
           <BarChartIcon />
-          Analytics
+          GA4
         </button>
+        <button
+          type="button"
+          className={activeView === "search-console" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("search-console")}
+        >
+          <SearchIcon />
+          Search Console
+        </button>
+
+        <span className="sidebar-nav-label">Resources</span>
         <button
           type="button"
           className={activeView === "site-audit" ? "sidebar-nav-item active" : "sidebar-nav-item"}

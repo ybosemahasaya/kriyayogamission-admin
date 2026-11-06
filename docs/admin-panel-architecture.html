@@ -82,8 +82,8 @@
           <p class="text-stone-600 mt-1">KPI cards, timeseries chart, channel/device/new-vs-returning donut charts, top pages, top countries, realtime active-users badge, all-time total. 7/30/90-day ranges.</p>
         </div>
         <div class="bg-white rounded-lg border border-green-200 p-3">
-          <strong class="text-green-800">Search Console panel</strong>
-          <p class="text-stone-600 mt-1">Clicks/impressions/CTR/position KPIs with period-over-period deltas, top queries, top pages, clicks-by-device -- embedded inside the Analytics tab, reusing its range selector.</p>
+          <strong class="text-green-800">GA4 + Search Console pages</strong>
+          <p class="text-stone-600 mt-1">Split into two separate sidebar pages under an "Analytics" section (GA4, Search Console) instead of one combined tab. Search Console's page adds a Keyword Rankings report split into Branded vs. Non-Branded tabs (shared/brand-terms.ts), each with its own keyword-count/clicks/impressions/avg-position summary and a scrollable up-to-250-keyword table.</p>
         </div>
         <div class="bg-white rounded-lg border border-green-200 p-3">
           <strong class="text-green-800">Login / branding</strong>
@@ -454,13 +454,21 @@
         <li><strong>Bulk action bar</strong> appears once 1+ photos are selected: bulk edit (shared category/published-state change) or bulk delete with a confirmation prompt</li>
       </ul>
 
-      <h3 class="font-semibold text-stone-800 mb-1">Analytics page</h3>
+      <h3 class="font-semibold text-stone-800 mb-1">GA4 page</h3>
       <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
-        <li>A 7-day / 30-day / 90-day range toggle shared by both the GA4 and Search Console sections below it</li>
+        <li>A 7-day / 30-day / 90-day range toggle, its own page under the sidebar's "Analytics" section (separate from Search Console -- see below)</li>
         <li>An all-time total-visitors badge and a live "active right now" realtime badge (GA4 Realtime API)</li>
-        <li><strong>GA4 section:</strong> KPI cards (total users, new users, sessions, engagement rate, avg. session duration, conversions) each with a period-over-period delta; a users/sessions timeseries chart; donut charts for traffic channels, devices, and new-vs-returning; tables for top pages and top countries</li>
-        <li><strong>Search Console section</strong> (same tab, scrolled below GA4): KPI cards for clicks/impressions/CTR/avg. position with deltas; tables for top search queries and top pages; a clicks-by-device donut</li>
-        <li>Both sections degrade gracefully to a plain "isn't connected yet" message if their respective credentials aren't configured, instead of crashing the page</li>
+        <li>KPI cards (total users, new users, sessions, engagement rate, avg. session duration, conversions) each with a period-over-period delta; a users/sessions timeseries chart; donut charts for traffic channels, devices, and new-vs-returning; tables for top pages and top countries</li>
+        <li>Degrades gracefully to a plain "isn't connected yet" message if GA4 credentials aren't configured, instead of crashing the page</li>
+      </ul>
+
+      <h3 class="font-semibold text-stone-800 mb-1">Search Console page</h3>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li>Its own page and its own 7/30/90-day range toggle, independent of the GA4 page's selection</li>
+        <li>KPI cards for clicks/impressions/CTR/avg. position with period-over-period deltas</li>
+        <li><strong>Keyword Rankings report</strong> (the main addition requested 2026-11-07): every query from the selected range (up to 250, GSC's own per-request rows sorted by clicks) is classified Branded vs. Non-Branded by shared/brand-terms.ts's BRAND_TERMS list (the exact organization name, its domain, "kym", and the current guru's name -- deliberately NOT the generic term "kriya yoga" itself, since that's a topic thousands of unrelated pages compete for, not evidence of brand recognition). Two tabs, each with its own keyword-count/total-clicks/total-impressions/avg-position summary and a scrollable table of every keyword in that bucket (query, clicks, impressions, CTR, position). Defaults to the Non-Branded tab open, since that's the traffic SEO work is actually trying to grow.</li>
+        <li>A top-pages-by-search table and a clicks-by-device donut, same data shape as before</li>
+        <li>Degrades gracefully to a plain "isn't connected yet" message if Search Console credentials aren't configured</li>
       </ul>
 
       <h3 class="font-semibold text-stone-800 mb-1">Quick Links page</h3>
@@ -683,7 +691,7 @@ const phase2Items = [
     id: "ga4-reporting-widget",
     title: "GA4 reporting dashboard inside the admin panel",
     path: "Google Analytics Data API (GA4 Reporting API v1)",
-    detail: "SHIPPED -- went further than originally scoped: KPI cards, timeseries, channel/device/new-vs-returning donuts, top pages, top countries, a realtime active-users badge, and an all-time total, with 7/30/90-day range selection. Also shipped a Search Console panel on the same tab (clicks/impressions/CTR/position with deltas, top queries, top pages, device breakdown), reusing the same dual OAuth/service-account Google auth layer. See the Technical Design / Functional Spec sections above for full detail.",
+    detail: "SHIPPED -- went further than originally scoped: KPI cards, timeseries, channel/device/new-vs-returning donuts, top pages, top countries, a realtime active-users badge, and an all-time total, with 7/30/90-day range selection. Also shipped Search Console as its OWN sidebar page (not a panel embedded in the GA4 page -- split out 2026-11-07 so each has room for its own range selector and deeper reports): clicks/impressions/CTR/position with deltas, top pages, device breakdown, plus a dedicated Keyword Rankings report split into Branded vs. Non-Branded tabs (shared/brand-terms.ts classifies up to 250 top-by-clicks queries per request). Both pages reuse the same dual OAuth/service-account Google auth layer. See the Technical Design / Functional Spec sections above for full detail.",
     done: true
   },
   {

@@ -6,7 +6,6 @@ import { AnalyticsDonutChart } from "./analytics/AnalyticsDonutChart";
 import { AnalyticsKpiCards } from "./analytics/AnalyticsKpiCards";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
 import { AnalyticsTimeseriesChart } from "./analytics/AnalyticsTimeseriesChart";
-import { SearchConsolePanel } from "./SearchConsolePanel";
 import { formatDuration, formatNumber } from "../lib/format";
 
 const RANGE_OPTIONS: { value: AnalyticsRange; label: string }[] = [
@@ -15,7 +14,12 @@ const RANGE_OPTIONS: { value: AnalyticsRange; label: string }[] = [
   { value: "90d", label: "Last 90 days" },
 ];
 
-export function AnalyticsPage({ theme }: { theme: Theme }) {
+/** GA4 traffic/engagement data -- its own sidebar page under Analytics,
+ * separate from Search Console's keyword/ranking data (see
+ * SearchConsolePage), since they're two different Google products with
+ * two different kinds of insight (behavior on-site vs. visibility in
+ * search results). */
+export function Ga4Page({ theme }: { theme: Theme }) {
   const [range, setRange] = useState<AnalyticsRange>("7d");
   const { data, loading, error, notConfigured, realtimeUsers } = useAnalytics(range);
 
@@ -97,8 +101,6 @@ export function AnalyticsPage({ theme }: { theme: Theme }) {
               rows={data.geo.map((g) => [g.country, formatNumber(g.sessions), formatNumber(g.users)])}
             />
           </div>
-
-          <SearchConsolePanel range={range} theme={theme} />
         </>
       )}
     </div>

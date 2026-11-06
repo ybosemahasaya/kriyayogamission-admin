@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { bulkDeleteImages, listImages } from "./api/gallery";
-import { AnalyticsPage } from "./components/AnalyticsPage";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { BulkEditModal } from "./components/BulkEditModal";
 import { EditImageModal } from "./components/EditImageModal";
+import { Ga4Page } from "./components/Ga4Page";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { Modal } from "./components/Modal";
 import { ProfileMenu } from "./components/ProfileMenu";
 import { QuickLinksPage } from "./components/QuickLinksPage";
+import { SearchConsolePage } from "./components/SearchConsolePage";
 import { Sidebar, type SidebarView } from "./components/Sidebar";
 import { SiteAuditPage } from "./components/SiteAuditPage";
 import { UploadForm } from "./components/UploadForm";
@@ -106,13 +107,21 @@ function App() {
       <Sidebar theme={theme} onToggleTheme={toggleTheme} activeView={view} onNavigate={setView} />
 
       <main className="app-main">
-        {view === "analytics" ? (
+        {view === "ga4" ? (
           <>
             <header className="main-header">
-              <h1>Analytics</h1>
+              <h1>GA4</h1>
               <p>Traffic and engagement for kriyayogamission.org, straight from GA4.</p>
             </header>
-            <AnalyticsPage theme={theme} />
+            <Ga4Page theme={theme} />
+          </>
+        ) : view === "search-console" ? (
+          <>
+            <header className="main-header">
+              <h1>Search Console</h1>
+              <p>How kriyayogamission.org shows up in Google Search, and what people search to find it.</p>
+            </header>
+            <SearchConsolePage theme={theme} />
           </>
         ) : view === "site-audit" ? (
           <>

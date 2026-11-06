@@ -1,9 +1,16 @@
-import type { SearchConsoleDevice, SearchConsoleDTO, SearchConsolePage, SearchConsoleQuery } from "../../shared/search-console";
+import type { SearchConsoleDevice, SearchConsoleDTO, SearchConsoleKeywordGroup, SearchConsolePage, SearchConsoleQuery } from "../../shared/search-console";
+import { isBrandedQuery } from "../../shared/brand-terms";
 import type { AnalyticsRange } from "../../shared/analytics";
 import { querySearchAnalytics, type GscRow } from "../lib/gsc-client";
 import { getGoogleAccessToken, resolveGoogleCredentials, SEARCH_CONSOLE_READONLY_SCOPE, type GoogleCredentials } from "../lib/google-auth";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
+
+// GSC's own max is 25,000 -- 250 is already generous for a single-site
+// keyword-ranking breakdown and keeps the response small. Rows come back
+// sorted by clicks descending, so this is "the top 250 keywords by
+// clicks", not an arbitrary slice.
+const KEYWORD_ROW_LIMIT = 250;
 
 const RANGE_DAYS: Record<AnalyticsRange, number> = { "7d": 7, "30d": 30, "90d": 90 };
 
@@ -76,7 +83,7 @@ export async function handleSearchConsoleRequest(request: Request, env: Env): Pr
   const [currentTotalsRes, previousTotalsRes, queriesRes, pagesRes, devicesRes] = await Promise.all([
     querySearchAnalytics(creds.siteUrl, accessToken, { ...current, rowLimit: 1 }),
     querySearchAnalytics(creds.siteUrl, accessToken, { ...previous, rowLimit: 1 }),
-    querySearchAnalytics(creds.siteUrl, accessToken, { ...current, dimensions: ["query"], rowLimit: 10 }),
+    querySearchAnalytics(creds.siteUrl, accessToken, { ...current, dimensions: ["query"], rowLimit: KEYWORD_ROW_LIMIT }),
     querySearchAnalytics(creds.siteUrl, accessToken, { ...current, dimensions: ["page"], rowLimit: 10 }),
     querySearchAnalytics(creds.siteUrl, accessToken, { ...current, dimensions: ["device"], rowLimit: 10 }),
   ]);
@@ -85,13 +92,23 @@ export async function handleSearchConsoleRequest(request: Request, env: Env): Pr
   const previousTotals = totals(previousTotalsRes.rows);
   const metric = (key: keyof typeof currentTotals) => ({ current: currentTotals[key], previous: previousTotals[key] });
 
-  const topQueries: SearchConsoleQuery[] = (queriesRes.rows ?? []).map((row) => ({
+  const allQueries: SearchConsoleQuery[] = (queriesRes.rows ?? []).map((row) => ({
     query: row.keys?.[0] ?? "",
     clicks: row.clicks,
     impressions: row.impressions,
     ctr: row.ctr,
     position: row.position,
   }));
+
+  function toKeywordGroup(queries: SearchConsoleQuery[]): SearchConsoleKeywordGroup {
+    const { clicks, impressions, position } = totals(
+      queries.map((q) => ({ keys: [q.query], clicks: q.clicks, impressions: q.impressions, ctr: q.ctr, position: q.position })),
+    );
+    return { keywordCount: queries.length, totalClicks: clicks, totalImpressions: impressions, avgPosition: position, queries };
+  }
+
+  const brandedKeywords = toKeywordGroup(allQueries.filter((q) => isBrandedQuery(q.query)));
+  const nonBrandedKeywords = toKeywordGroup(allQueries.filter((q) => !isBrandedQuery(q.query)));
 
   const topPages: SearchConsolePage[] = (pagesRes.rows ?? []).map((row) => ({
     page: row.keys?.[0] ?? "",
@@ -115,7 +132,8 @@ export async function handleSearchConsoleRequest(request: Request, env: Env): Pr
       ctr: metric("ctr"),
       position: metric("position"),
     },
-    topQueries,
+    brandedKeywords,
+    nonBrandedKeywords,
     topPages,
     devices,
   };

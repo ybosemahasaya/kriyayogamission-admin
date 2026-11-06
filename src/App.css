@@ -1463,6 +1463,32 @@
   margin-bottom: 0;
 }
 
+.keyword-rankings-card {
+  flex: 1 1 100%;
+}
+
+.keyword-rankings-tabs {
+  margin-top: 0.75rem;
+}
+
+.keyword-rankings-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.keyword-rankings-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.keyword-rankings-table-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
 .audit-severity-badge {
   font-size: 0.7rem;
   font-weight: 700;

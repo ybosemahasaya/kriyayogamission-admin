@@ -9,6 +9,9 @@ export interface ThemeColors {
   accentStrong: string;
   textSecondary: string;
   border: string;
+  danger: string;
+  warning: string;
+  notice: string;
 }
 
 export function readThemeColors(): ThemeColors {
@@ -19,6 +22,9 @@ export function readThemeColors(): ThemeColors {
     accentStrong: read("--accent-strong"),
     textSecondary: read("--text-secondary"),
     border: read("--border"),
+    danger: read("--danger"),
+    warning: read("--warning"),
+    notice: read("--notice"),
   };
 }
 

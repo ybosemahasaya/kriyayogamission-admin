@@ -1,9 +1,11 @@
 import { useState } from "react";
-import type { AuditIssueDTO, AuditSeverity } from "../../shared/site-audit";
-import { AUDIT_CHECK_INFO, DEFAULT_CHECK_INFO } from "../../shared/site-audit-issue-info";
+import type { AuditIssueDTO, AuditPageDTO, AuditSeverity } from "../../shared/site-audit";
+import type { Theme } from "../hooks/useTheme";
 import { useSiteAudit } from "../hooks/useSiteAudit";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
-import { ChevronDownIcon } from "./icons";
+import { AuditIssueRow } from "./AuditIssueRow";
+import { CrawledPageDetailModal } from "./CrawledPageDetailModal";
+import { SiteAuditProgressChart } from "./SiteAuditProgressChart";
 
 const SEVERITY_LABELS: Record<AuditSeverity, string> = {
   error: "Errors",
@@ -29,21 +31,11 @@ function relativePagePath(url: string): string {
   }
 }
 
-export function SiteAuditPage() {
+export function SiteAuditPage({ theme }: { theme: Theme }) {
   const { latest, history, loading, running, error, notConfigured, runAudit } = useSiteAudit();
-  // Which issue rows are expanded to show "About the issue" / "How to
-  // fix" -- keyed by issue id, reset implicitly whenever a fresh audit
-  // replaces `latest` (new ids, so stale entries just stop matching).
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-
-  function toggleExpanded(id: number) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  // Clicking a row in the Crawled Pages table opens that page's own
+  // detail modal (mirrors SEMrush's per-page drill-down). null = closed.
+  const [selectedPage, setSelectedPage] = useState<AuditPageDTO | null>(null);
 
   if (notConfigured) {
     return (
@@ -112,56 +104,17 @@ export function SiteAuditPage() {
                   {SEVERITY_LABELS[severity]} ({items.length})
                 </h3>
                 <ul className="audit-issue-list">
-                  {items.map((issue) => {
-                    const expanded = expandedIds.has(issue.id);
-                    const info = AUDIT_CHECK_INFO[issue.checkType] ?? DEFAULT_CHECK_INFO;
-                    return (
-                      <li key={issue.id} className="audit-issue-item">
-                        <button
-                          type="button"
-                          className="audit-issue-row"
-                          onClick={() => toggleExpanded(issue.id)}
-                          aria-expanded={expanded}
-                        >
-                          <ChevronDownIcon className={expanded ? "audit-chevron audit-chevron-open" : "audit-chevron"} />
-                          <span className={`audit-severity-badge audit-severity-${issue.severity}`}>
-                            {issue.checkType}
-                          </span>
-                          <span className="audit-issue-message">{issue.message}</span>
-                          {issue.pageUrl && (
-                            <span className="audit-issue-page-link">{relativePagePath(issue.pageUrl)}</span>
-                          )}
-                        </button>
-                        {expanded && (
-                          <div className="audit-issue-detail">
-                            <div>
-                              <h4>About the issue</h4>
-                              <p>{info.about}</p>
-                            </div>
-                            <div>
-                              <h4>How to fix</h4>
-                              <ul>
-                                {info.howToFix.map((step) => (
-                                  <li key={step}>{step}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            {issue.pageUrl && (
-                              <a href={issue.pageUrl} target="_blank" rel="noreferrer" className="audit-issue-detail-link">
-                                Open page &rarr;
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
+                  {items.map((issue) => (
+                    <AuditIssueRow key={issue.id} issue={issue} />
+                  ))}
                 </ul>
               </div>
             );
           })}
           {latest.issues.length === 0 && <p className="empty-state">No issues found on this run.</p>}
 
+          <h2 className="analytics-section-title">Crawled Pages</h2>
+          <p className="audit-hint">Click a page to see its own issues in detail.</p>
           <div className="analytics-chart-row">
             <AnalyticsTable
               title="Crawled Pages"
@@ -172,6 +125,7 @@ export function SiteAuditPage() {
                 page.title ?? "--",
                 page.issueCount.toString(),
               ])}
+              onRowClick={(index) => setSelectedPage(latest.pages[index])}
             />
           </div>
         </>
@@ -179,7 +133,10 @@ export function SiteAuditPage() {
 
       {history.length > 0 && (
         <>
-          <h2 className="analytics-section-title">Previous Runs</h2>
+          <h2 className="analytics-section-title">Progress</h2>
+          <div className="analytics-chart-row">
+            <SiteAuditProgressChart runs={history} theme={theme} />
+          </div>
           <div className="analytics-chart-row">
             <AnalyticsTable
               title="Run history"
@@ -194,6 +151,14 @@ export function SiteAuditPage() {
             />
           </div>
         </>
+      )}
+
+      {selectedPage && latest && (
+        <CrawledPageDetailModal
+          page={selectedPage}
+          issues={latest.issues.filter((issue) => issue.pageUrl === selectedPage.url)}
+          onClose={() => setSelectedPage(null)}
+        />
       )}
     </div>
   );

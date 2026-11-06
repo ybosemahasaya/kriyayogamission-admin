@@ -120,7 +120,7 @@ function App() {
               <h1>Site Audit</h1>
               <p>Crawl kriyayogamission.org's own public pages and flag technical SEO issues.</p>
             </header>
-            <SiteAuditPage />
+            <SiteAuditPage theme={theme} />
           </>
         ) : view === "links" ? (
           <>

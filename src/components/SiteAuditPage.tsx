@@ -1,6 +1,9 @@
+import { useState } from "react";
 import type { AuditIssueDTO, AuditSeverity } from "../../shared/site-audit";
+import { AUDIT_CHECK_INFO, DEFAULT_CHECK_INFO } from "../../shared/site-audit-issue-info";
 import { useSiteAudit } from "../hooks/useSiteAudit";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
+import { ChevronDownIcon } from "./icons";
 
 const SEVERITY_LABELS: Record<AuditSeverity, string> = {
   error: "Errors",
@@ -28,6 +31,19 @@ function relativePagePath(url: string): string {
 
 export function SiteAuditPage() {
   const { latest, history, loading, running, error, notConfigured, runAudit } = useSiteAudit();
+  // Which issue rows are expanded to show "About the issue" / "How to
+  // fix" -- keyed by issue id, reset implicitly whenever a fresh audit
+  // replaces `latest` (new ids, so stale entries just stop matching).
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+
+  function toggleExpanded(id: number) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   if (notConfigured) {
     return (
@@ -96,17 +112,50 @@ export function SiteAuditPage() {
                   {SEVERITY_LABELS[severity]} ({items.length})
                 </h3>
                 <ul className="audit-issue-list">
-                  {items.map((issue) => (
-                    <li key={issue.id} className="audit-issue-row">
-                      <span className={`audit-severity-badge audit-severity-${issue.severity}`}>{issue.checkType}</span>
-                      <span className="audit-issue-message">{issue.message}</span>
-                      {issue.pageUrl && (
-                        <a href={issue.pageUrl} target="_blank" rel="noreferrer" className="audit-issue-page-link">
-                          {relativePagePath(issue.pageUrl)}
-                        </a>
-                      )}
-                    </li>
-                  ))}
+                  {items.map((issue) => {
+                    const expanded = expandedIds.has(issue.id);
+                    const info = AUDIT_CHECK_INFO[issue.checkType] ?? DEFAULT_CHECK_INFO;
+                    return (
+                      <li key={issue.id} className="audit-issue-item">
+                        <button
+                          type="button"
+                          className="audit-issue-row"
+                          onClick={() => toggleExpanded(issue.id)}
+                          aria-expanded={expanded}
+                        >
+                          <ChevronDownIcon className={expanded ? "audit-chevron audit-chevron-open" : "audit-chevron"} />
+                          <span className={`audit-severity-badge audit-severity-${issue.severity}`}>
+                            {issue.checkType}
+                          </span>
+                          <span className="audit-issue-message">{issue.message}</span>
+                          {issue.pageUrl && (
+                            <span className="audit-issue-page-link">{relativePagePath(issue.pageUrl)}</span>
+                          )}
+                        </button>
+                        {expanded && (
+                          <div className="audit-issue-detail">
+                            <div>
+                              <h4>About the issue</h4>
+                              <p>{info.about}</p>
+                            </div>
+                            <div>
+                              <h4>How to fix</h4>
+                              <ul>
+                                {info.howToFix.map((step) => (
+                                  <li key={step}>{step}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            {issue.pageUrl && (
+                              <a href={issue.pageUrl} target="_blank" rel="noreferrer" className="audit-issue-detail-link">
+                                Open page &rarr;
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             );

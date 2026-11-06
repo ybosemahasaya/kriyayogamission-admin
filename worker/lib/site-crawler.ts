@@ -10,7 +10,7 @@
  * Analytics card).
  *
  * Fetch budget: Workers cap subrequests per request (50 on the free
- * plan). This crawl uses robots.txt (1) + sitemap-index.xml (1) + each
+ * plan). This crawl uses robots.txt (1) + llms.txt (1) + sitemap-index.xml (1) + each
  * nested sitemap file (usually 1) + one fetch per page (~18 today) +
  * up to MAX_LINK_CONFIRM_FETCHES confirmation fetches for internal links
  * that aren't already part of the known page set -- comfortably under
@@ -96,6 +96,20 @@ async function checkRobotsTxt(): Promise<CrawledIssue[]> {
  * @astrojs/sitemap integration always produces this two-level shape (see
  * astro.config.mjs), so a simple regex extraction is enough here --
  * no need for a full XML parser for a file this site fully controls. */
+/** AI agents/LLM tools increasingly look for this (see llmstxt.org) --
+ * not a search-ranking factor, just an emerging convention for giving
+ * agents a curated overview instead of parsing full HTML. A flat
+ * notice-level check, same shape as checkRobotsTxt above. */
+async function checkLlmsTxt(): Promise<CrawledIssue[]> {
+  try {
+    const res = await fetch(`${SITE_ORIGIN}/llms.txt`);
+    if (res.ok) return [];
+  } catch {
+    // falls through to the same "missing" issue as a non-ok response
+  }
+  return [{ pageUrl: null, severity: "notice", checkType: "llms-txt-missing", message: "llms.txt not found" }];
+}
+
 async function fetchSitemapPageUrls(): Promise<{ urls: string[]; issues: CrawledIssue[] }> {
   const issues: CrawledIssue[] = [];
   const locPattern = /<loc>(.*?)<\/loc>/g;
@@ -326,6 +340,7 @@ export async function runSiteAudit(_env: Env): Promise<AuditResult> {
   const issues: CrawledIssue[] = [];
 
   issues.push(...(await checkRobotsTxt()));
+  issues.push(...(await checkLlmsTxt()));
 
   const { urls, issues: sitemapIssues } = await fetchSitemapPageUrls();
   issues.push(...sitemapIssues);

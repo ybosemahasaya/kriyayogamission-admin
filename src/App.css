@@ -1131,12 +1131,78 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  width: 100%;
   padding: 0.55rem 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 0.85rem;
   flex-wrap: wrap;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+}
+
+.audit-issue-row:hover {
+  border-color: var(--accent);
+}
+
+.audit-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.audit-chevron-open {
+  transform: rotate(180deg);
+}
+
+.audit-issue-detail {
+  margin: 0.4rem 0 0;
+  padding: 0.85rem 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  font-size: 0.82rem;
+}
+
+.audit-issue-detail h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.audit-issue-detail p {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.audit-issue-detail ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.audit-issue-detail-link {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.audit-issue-detail-link:hover {
+  text-decoration: underline;
 }
 
 .audit-severity-badge {

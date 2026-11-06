@@ -121,7 +121,7 @@ function App() {
               <h1>Search Console</h1>
               <p>How kriyayogamission.org shows up in Google Search, and what people search to find it.</p>
             </header>
-            <SearchConsolePage theme={theme} />
+            <SearchConsolePage />
           </>
         ) : view === "site-audit" ? (
           <>

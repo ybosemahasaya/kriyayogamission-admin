@@ -11,12 +11,25 @@
 
 const BASE_URL = "https://www.googleapis.com/webmasters/v3";
 
-export type GscDimension = "query" | "page" | "country" | "device" | "date";
+export type GscDimension = "query" | "page" | "country" | "device" | "date" | "searchAppearance";
+
+export type GscFilterOperator = "contains" | "notContains" | "equals";
+
+export interface GscDimensionFilter {
+  dimension: GscDimension;
+  operator: GscFilterOperator;
+  expression: string;
+}
 
 export interface GscQueryRequest {
   startDate: string;
   endDate: string;
   dimensions?: GscDimension[];
+  /** Google's API wants an array of filter GROUPS (each group is AND'd
+   * internally, groups themselves are OR'd) -- this Worker never needs
+   * OR-across-groups, so callers just pass one flat filter list and this
+   * module wraps it in the single group shape the API expects. */
+  filters?: GscDimensionFilter[];
   rowLimit?: number;
 }
 
@@ -37,13 +50,19 @@ export async function querySearchAnalytics(
   accessToken: string,
   request: GscQueryRequest,
 ): Promise<GscQueryResponse> {
+  const { filters, ...rest } = request;
+  const body = {
+    ...rest,
+    ...(filters && filters.length > 0 ? { dimensionFilterGroups: [{ filters }] } : {}),
+  };
+
   const res = await fetch(`${BASE_URL}/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
     method: "POST",
     headers: {
       authorization: `Bearer ${accessToken}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

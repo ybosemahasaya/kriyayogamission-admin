@@ -1087,3 +1087,95 @@
 .analytics-table tr:last-child td {
   border-bottom: none;
 }
+
+/* Mini Site Audit (see docs/admin-panel-architecture.html's "mini-site-audit"
+   roadmap item). Reuses analytics-kpi-* / analytics-chart-row /
+   analytics-table classes above for the KPI cards and tables -- only the
+   severity-specific bits below are new. */
+.site-audit-last-run {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.audit-severity-text-error {
+  color: var(--danger);
+}
+
+.audit-severity-text-warning {
+  color: var(--warning);
+}
+
+.audit-severity-text-notice {
+  color: var(--notice);
+}
+
+.audit-issue-group {
+  margin-bottom: 1.25rem;
+}
+
+.audit-issue-group h3 {
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+}
+
+.audit-issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.audit-issue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.audit-severity-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.audit-severity-badge.audit-severity-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.audit-severity-badge.audit-severity-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.audit-severity-badge.audit-severity-notice {
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--notice);
+}
+
+.audit-issue-message {
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.audit-issue-page-link {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.audit-issue-page-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}

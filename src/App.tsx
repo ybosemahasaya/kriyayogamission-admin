@@ -9,6 +9,7 @@ import { Modal } from "./components/Modal";
 import { ProfileMenu } from "./components/ProfileMenu";
 import { QuickLinksPage } from "./components/QuickLinksPage";
 import { Sidebar, type SidebarView } from "./components/Sidebar";
+import { SiteAuditPage } from "./components/SiteAuditPage";
 import { UploadForm } from "./components/UploadForm";
 import { UploadProgressPanel } from "./components/UploadProgressPanel";
 import { PlusIcon, SearchIcon } from "./components/icons";
@@ -112,6 +113,14 @@ function App() {
               <p>Traffic and engagement for kriyayogamission.org, straight from GA4.</p>
             </header>
             <AnalyticsPage theme={theme} />
+          </>
+        ) : view === "site-audit" ? (
+          <>
+            <header className="main-header">
+              <h1>Site Audit</h1>
+              <p>Crawl kriyayogamission.org's own public pages and flag technical SEO issues.</p>
+            </header>
+            <SiteAuditPage />
           </>
         ) : view === "links" ? (
           <>

@@ -134,3 +134,12 @@ export function BarChartIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function ShieldCheckIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2 4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}

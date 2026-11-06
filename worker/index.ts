@@ -3,6 +3,11 @@ import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
 import { handlePublicGalleryRequest } from "./api/public-gallery";
 import { handleSearchConsoleRequest } from "./api/search-console";
+import {
+  handleSiteAuditLatestRequest,
+  handleSiteAuditRunRequest,
+  handleSiteAuditRunsRequest,
+} from "./api/site-audit";
 import { errorResponse } from "./lib/http";
 import type { Env } from "./types";
 
@@ -68,6 +73,37 @@ export default {
         console.error("Search Console API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
+      }
+    }
+
+    // Mini Site Audit (see docs/admin-panel-architecture.html's
+    // "mini-site-audit" roadmap item). /run triggers a fresh crawl of
+    // this site's own public pages; /latest and /runs are read-only.
+    if (url.pathname === "/api/site-audit/run") {
+      try {
+        return await handleSiteAuditRunRequest(request, env);
+      } catch (err) {
+        console.error("Site audit run API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    if (url.pathname === "/api/site-audit/latest" && request.method === "GET") {
+      try {
+        return await handleSiteAuditLatestRequest(env);
+      } catch (err) {
+        console.error("Site audit latest API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    if (url.pathname === "/api/site-audit/runs" && request.method === "GET") {
+      try {
+        return await handleSiteAuditRunsRequest(env);
+      } catch (err) {
+        console.error("Site audit runs API error:", err);
+        return errorResponse("Internal server error", 500);
       }
     }
 

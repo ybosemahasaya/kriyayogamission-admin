@@ -1,7 +1,7 @@
 import type { Theme } from "../hooks/useTheme";
-import { BarChartIcon, ImageIcon, LinkIcon, MoonIcon, SunIcon } from "./icons";
+import { BarChartIcon, ImageIcon, LinkIcon, MoonIcon, ShieldCheckIcon, SunIcon } from "./icons";
 
-export type SidebarView = "gallery" | "links" | "analytics";
+export type SidebarView = "gallery" | "links" | "analytics" | "site-audit";
 
 interface Props {
   theme: Theme;
@@ -40,6 +40,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <BarChartIcon />
           Analytics
+        </button>
+        <button
+          type="button"
+          className={activeView === "site-audit" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("site-audit")}
+        >
+          <ShieldCheckIcon />
+          Site Audit
         </button>
         <button
           type="button"

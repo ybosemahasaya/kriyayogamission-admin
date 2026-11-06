@@ -25,6 +25,8 @@ body,
   --accent-strong: #fb923c; /* saffron-400, pops on dark */
   --accent-contrast: #1c1917; /* stone-900 */
   --danger: #ef4444;
+  --warning: #f59e0b;
+  --notice: #60a5fa;
   --media-bg: #0d0b0a;
 }
 
@@ -44,6 +46,8 @@ body,
   --accent-strong: #c2410c; /* saffron-700 */
   --accent-contrast: #ffffff;
   --danger: #dc2626;
+  --warning: #d97706;
+  --notice: #2563eb;
   --media-bg: #f5f5f4; /* stone-100 */
 }
 

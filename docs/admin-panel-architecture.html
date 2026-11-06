@@ -765,6 +765,12 @@ const phase2Items = [
     detail: "Nice-to-have refinement once the manual banner toggle (see announcement-banner item above) exists -- not urgent, a manual toggle already captures most of the value."
   },
   {
+    id: "mini-site-audit",
+    title: "Mini Site Audit tab -- a scoped, self-hosted equivalent of SEMrush's Site Audit tool",
+    path: "Cloudflare Cron Trigger (scheduled Worker) + new D1 tables (site_audit_runs, site_audit_issues) + new admin UI tab",
+    detail: "Requested 2026-11-06 after reviewing SEMrush's Site Audit dashboard (Overview/Issues/Crawled Pages/Statistics/Progress/Compare Crawls tabs, Errors/Warnings/Notices severity buckets, a 0-100 Site Health score, historical trend chart). Deliberately NOT attempting full feature parity -- that's a crawler + 60-check rule engine + historical DB, a huge undertaking, and several of SEMrush's categories are already covered elsewhere for free: Core Web Vitals/Site Performance duplicates the already-roadmapped crux-pagespeed-card item (Phase 3), crawl errors/indexing/mobile usability duplicate the Search Console integration already shipped, bot/WAF-level anomalies duplicate the already-roadmapped cloudflare-web-analytics item (Phase 3), and Hreflang/International SEO is not applicable to this single-language site. Scoped-down version worth building: a scheduled Worker crawls this site's own ~18 sitemap pages and checks only what matters for a small static site -- HTTP status code, missing/duplicate title+meta description, missing/multiple H1, missing image alt attributes, broken internal links (cross-checked against the known page list), mixed content/stray HTTP links, canonical tag presence, and robots.txt/sitemap-index.xml reachability. Results stored in D1 with a timestamp, surfaced as a new 'Site Audit' admin tab: an issue list grouped by severity (mirroring SEMrush's Errors/Warnings/Notices layout), a simple health score, and a trend chart once enough runs have accumulated. Explicitly out of scope: AI Search Health scoring, JS-rendering-impact analysis, canonicalization percentage stats, and anything backlink/keyword-ranking related (a different SEMrush product entirely, unrelated to 'site audit'). Suggest building in phases: MVP (crawl + the 6-8 core checks + a flat issue list) before historical tracking/trend charts."
+  },
+  {
     id: "multi-role-permissions",
     title: "Multi-admin roles/permissions, if more than one person needs different access levels",
     path: "D1 (a roles table) + admin Worker route guards",

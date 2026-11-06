@@ -138,6 +138,20 @@ export const AUDIT_CHECK_INFO: Record<string, AuditCheckInfo> = {
       "Keep it updated as pages are added or renamed -- it's a static file, not auto-generated.",
     ],
   },
+  "ai-bots-blocked": {
+    about: "robots.txt explicitly blocks all known AI crawlers (GPTBot, ClaudeBot, Google-Extended, PerplexityBot, CCBot, etc.). This is a policy status, not a problem -- it means this site's content won't be used to train or be retrieved by those AI systems.",
+    howToFix: [
+      "No action needed if this is the intended policy.",
+      "If you'd rather AI assistants be able to find and cite this site's content, remove the relevant Disallow rules from public/robots.txt.",
+    ],
+  },
+  "ai-bots-allowed": {
+    about: "robots.txt does not block one or more known AI crawlers. This may be intentional (letting AI assistants discover and cite this content) or accidental.",
+    howToFix: [
+      "If intentional, no action needed -- combined with an llms.txt file, this helps AI tools understand and reference the site accurately.",
+      "If you want to opt out, add 'User-agent: <bot>' + 'Disallow: /' blocks to public/robots.txt for each crawler you want to exclude (GPTBot, ChatGPT-User, ClaudeBot, anthropic-ai, Google-Extended, PerplexityBot, CCBot).",
+    ],
+  },
 };
 
 export const DEFAULT_CHECK_INFO: AuditCheckInfo = {

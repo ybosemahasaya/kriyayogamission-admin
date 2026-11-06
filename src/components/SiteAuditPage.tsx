@@ -1,41 +1,31 @@
 import { useState } from "react";
-import type { AuditIssueDTO, AuditPageDTO, AuditSeverity } from "../../shared/site-audit";
 import type { Theme } from "../hooks/useTheme";
 import { useSiteAudit } from "../hooks/useSiteAudit";
-import { AnalyticsTable } from "./analytics/AnalyticsTable";
-import { AuditIssueRow } from "./AuditIssueRow";
-import { CrawledPageDetailModal } from "./CrawledPageDetailModal";
-import { SiteAuditProgressChart } from "./SiteAuditProgressChart";
+import { AiSearchTab } from "./site-audit/AiSearchTab";
+import { CompareCrawlsTab } from "./site-audit/CompareCrawlsTab";
+import { CrawledPagesTab } from "./site-audit/CrawledPagesTab";
+import { IssuesTab } from "./site-audit/IssuesTab";
+import { JsImpactTab } from "./site-audit/JsImpactTab";
+import { OverviewTab } from "./site-audit/OverviewTab";
+import { ProgressTab } from "./site-audit/ProgressTab";
+import { StatisticsTab } from "./site-audit/StatisticsTab";
 
-const SEVERITY_LABELS: Record<AuditSeverity, string> = {
-  error: "Errors",
-  warning: "Warnings",
-  notice: "Notices",
-};
+type SiteAuditTab = "overview" | "issues" | "pages" | "statistics" | "compare" | "progress" | "ai-search" | "js-impact";
 
-// Rendered in this fixed order regardless of how many of each exist --
-// matches SEMrush's own Errors / Warnings / Notices ordering.
-const SEVERITY_ORDER: AuditSeverity[] = ["error", "warning", "notice"];
-
-function groupBySeverity(issues: AuditIssueDTO[]): Record<AuditSeverity, AuditIssueDTO[]> {
-  const groups: Record<AuditSeverity, AuditIssueDTO[]> = { error: [], warning: [], notice: [] };
-  for (const issue of issues) groups[issue.severity].push(issue);
-  return groups;
-}
-
-function relativePagePath(url: string): string {
-  try {
-    return new URL(url).pathname || "/";
-  } catch {
-    return url;
-  }
-}
+const TABS: { id: SiteAuditTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "issues", label: "Issues" },
+  { id: "pages", label: "Crawled Pages" },
+  { id: "statistics", label: "Statistics" },
+  { id: "compare", label: "Compare Crawls" },
+  { id: "progress", label: "Progress" },
+  { id: "ai-search", label: "AI Search" },
+  { id: "js-impact", label: "JS Impact" },
+];
 
 export function SiteAuditPage({ theme }: { theme: Theme }) {
   const { latest, history, loading, running, error, notConfigured, runAudit } = useSiteAudit();
-  // Clicking a row in the Crawled Pages table opens that page's own
-  // detail modal (mirrors SEMrush's per-page drill-down). null = closed.
-  const [selectedPage, setSelectedPage] = useState<AuditPageDTO | null>(null);
+  const [tab, setTab] = useState<SiteAuditTab>("overview");
 
   if (notConfigured) {
     return (
@@ -45,8 +35,6 @@ export function SiteAuditPage({ theme }: { theme: Theme }) {
       </p>
     );
   }
-
-  const issueGroups = latest ? groupBySeverity(latest.issues) : null;
 
   return (
     <div className="site-audit-page">
@@ -69,96 +57,30 @@ export function SiteAuditPage({ theme }: { theme: Theme }) {
         <p className="empty-state">No audits run yet. Click "Run Audit" to crawl the site for the first time.</p>
       )}
 
-      {latest && issueGroups && (
+      {latest && (
         <>
-          <div className="analytics-kpi-grid">
-            <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Site Health</span>
-              <span className="analytics-kpi-value">{latest.healthScore ?? "--"}</span>
-            </div>
-            <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Errors</span>
-              <span className="analytics-kpi-value audit-severity-text-error">{latest.errorCount}</span>
-            </div>
-            <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Warnings</span>
-              <span className="analytics-kpi-value audit-severity-text-warning">{latest.warningCount}</span>
-            </div>
-            <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Notices</span>
-              <span className="analytics-kpi-value audit-severity-text-notice">{latest.noticeCount}</span>
-            </div>
-            <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Pages Crawled</span>
-              <span className="analytics-kpi-value">{latest.pagesCrawled}</span>
-            </div>
+          <div className="tabs site-audit-tabs">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={tab === t.id ? "tab active" : "tab"}
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          <h2 className="analytics-section-title">Issues</h2>
-          {SEVERITY_ORDER.map((severity) => {
-            const items = issueGroups[severity];
-            if (items.length === 0) return null;
-            return (
-              <div key={severity} className="audit-issue-group">
-                <h3 className={`audit-severity-text-${severity}`}>
-                  {SEVERITY_LABELS[severity]} ({items.length})
-                </h3>
-                <ul className="audit-issue-list">
-                  {items.map((issue) => (
-                    <AuditIssueRow key={issue.id} issue={issue} />
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-          {latest.issues.length === 0 && <p className="empty-state">No issues found on this run.</p>}
-
-          <h2 className="analytics-section-title">Crawled Pages</h2>
-          <p className="audit-hint">Click a page to see its own issues in detail.</p>
-          <div className="analytics-chart-row">
-            <AnalyticsTable
-              title="Crawled Pages"
-              columns={["Page", "Status", "Title", "Issues"]}
-              rows={latest.pages.map((page) => [
-                relativePagePath(page.url),
-                page.statusCode?.toString() ?? "--",
-                page.title ?? "--",
-                page.issueCount.toString(),
-              ])}
-              onRowClick={(index) => setSelectedPage(latest.pages[index])}
-            />
-          </div>
+          {tab === "overview" && <OverviewTab latest={latest} />}
+          {tab === "issues" && <IssuesTab issues={latest.issues} />}
+          {tab === "pages" && <CrawledPagesTab pages={latest.pages} issues={latest.issues} />}
+          {tab === "statistics" && <StatisticsTab pages={latest.pages} issues={latest.issues} />}
+          {tab === "compare" && <CompareCrawlsTab history={history} />}
+          {tab === "progress" && <ProgressTab history={history} theme={theme} />}
+          {tab === "ai-search" && <AiSearchTab pages={latest.pages} issues={latest.issues} />}
+          {tab === "js-impact" && <JsImpactTab pages={latest.pages} />}
         </>
-      )}
-
-      {history.length > 0 && (
-        <>
-          <h2 className="analytics-section-title">Progress</h2>
-          <div className="analytics-chart-row">
-            <SiteAuditProgressChart runs={history} theme={theme} />
-          </div>
-          <div className="analytics-chart-row">
-            <AnalyticsTable
-              title="Run history"
-              columns={["Date", "Health", "Errors", "Warnings", "Notices"]}
-              rows={history.map((run) => [
-                new Date(run.startedAt).toLocaleString(),
-                run.healthScore?.toString() ?? "--",
-                run.errorCount.toString(),
-                run.warningCount.toString(),
-                run.noticeCount.toString(),
-              ])}
-            />
-          </div>
-        </>
-      )}
-
-      {selectedPage && latest && (
-        <CrawledPageDetailModal
-          page={selectedPage}
-          issues={latest.issues.filter((issue) => issue.pageUrl === selectedPage.url)}
-          onClose={() => setSelectedPage(null)}
-        />
       )}
     </div>
   );

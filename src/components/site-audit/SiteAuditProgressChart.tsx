@@ -9,9 +9,9 @@ import {
 } from "chart.js";
 import { useMemo } from "react";
 import { Line } from "react-chartjs-2";
-import type { AuditRunSummaryDTO } from "../../shared/site-audit";
-import type { Theme } from "../hooks/useTheme";
-import { readThemeColors } from "../lib/theme-colors";
+import type { AuditRunSummaryDTO } from "../../../shared/site-audit";
+import type { Theme } from "../../hooks/useTheme";
+import { readThemeColors } from "../../lib/theme-colors";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -100,7 +100,7 @@ export function SiteAuditProgressChart({ runs, theme }: Props) {
 
   return (
     <div className="analytics-chart-card">
-      <h3>Progress</h3>
+      <h3>Health &amp; issues over time</h3>
       {runs.length < 2 ? (
         <p className="analytics-empty">Run the audit a few more times to see a trend here.</p>
       ) : (

@@ -26,6 +26,8 @@ export interface AuditPageDTO {
   title: string | null;
   metaDescription: string | null;
   h1Count: number;
+  canonicalHref: string | null;
+  hasStructuredData: boolean;
   issueCount: number;
 }
 

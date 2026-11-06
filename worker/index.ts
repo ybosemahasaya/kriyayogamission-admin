@@ -5,6 +5,7 @@ import { handlePublicGalleryRequest } from "./api/public-gallery";
 import { handleSearchConsoleRequest } from "./api/search-console";
 import {
   handleSiteAuditLatestRequest,
+  handleSiteAuditRunDetailRequest,
   handleSiteAuditRunRequest,
   handleSiteAuditRunsRequest,
 } from "./api/site-audit";
@@ -103,6 +104,16 @@ export default {
         return await handleSiteAuditRunsRequest(env);
       } catch (err) {
         console.error("Site audit runs API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    const siteAuditRunDetailMatch = url.pathname.match(/^\/api\/site-audit\/runs\/([^/]+)$/);
+    if (siteAuditRunDetailMatch && request.method === "GET") {
+      try {
+        return await handleSiteAuditRunDetailRequest(env, siteAuditRunDetailMatch[1]);
+      } catch (err) {
+        console.error("Site audit run detail API error:", err);
         return errorResponse("Internal server error", 500);
       }
     }

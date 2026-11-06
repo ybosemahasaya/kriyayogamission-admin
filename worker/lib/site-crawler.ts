@@ -37,6 +37,7 @@ export interface CrawledPage {
   metaDescription: string | null;
   h1Count: number;
   canonicalHref: string | null;
+  hasStructuredData: boolean;
   imagesMissingAlt: number;
   internalLinks: string[]; // raw href values found on this page, same-origin only
   mixedContentCount: number;
@@ -68,16 +69,17 @@ function toAbsoluteSameOrigin(href: string, baseUrl: string): URL | null {
   }
 }
 
-async function checkRobotsTxt(): Promise<CrawledIssue[]> {
+async function checkRobotsTxt(): Promise<{ issues: CrawledIssue[]; robotsText: string | null }> {
   const issues: CrawledIssue[] = [];
+  let robotsText: string | null = null;
   try {
     const res = await fetch(`${SITE_ORIGIN}/robots.txt`);
     if (!res.ok) {
       issues.push({ pageUrl: null, severity: "warning", checkType: "robots-missing", message: "robots.txt not found" });
-      return issues;
+      return { issues, robotsText };
     }
-    const text = await res.text();
-    if (!/sitemap:/i.test(text)) {
+    robotsText = await res.text();
+    if (!/sitemap:/i.test(robotsText)) {
       issues.push({
         pageUrl: null,
         severity: "warning",
@@ -88,7 +90,57 @@ async function checkRobotsTxt(): Promise<CrawledIssue[]> {
   } catch {
     issues.push({ pageUrl: null, severity: "warning", checkType: "robots-missing", message: "robots.txt not found" });
   }
-  return issues;
+  return { issues, robotsText };
+}
+
+/** Known AI crawler/training user-agents (OpenAI, Anthropic, Google's AI
+ * training opt-out, Perplexity, and Common Crawl -- the dataset many AI
+ * labs train on). This is an "AI Search" status report, not a pass/fail
+ * bug: whether to block these is a policy choice, not an error. Severity
+ * is always "notice" either way -- see AUDIT_CHECK_INFO for the two
+ * possible checkTypes this can produce. */
+const AI_CRAWLER_USER_AGENTS = ["GPTBot", "ChatGPT-User", "ClaudeBot", "anthropic-ai", "Google-Extended", "PerplexityBot", "CCBot"];
+
+function checkAiBotsStatus(robotsText: string | null): CrawledIssue[] {
+  if (!robotsText) return []; // already flagged as robots-missing above
+
+  // Split into per-user-agent blocks so a "Disallow: /" under one bot's
+  // block doesn't get misread as applying to a different bot.
+  const lines = robotsText.split(/\r?\n/);
+  let currentAgents: string[] = [];
+  const blockedAgents = new Set<string>();
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const agentMatch = /^user-agent:\s*(.+)$/i.exec(line);
+    if (agentMatch) {
+      currentAgents = [agentMatch[1].trim()];
+      continue;
+    }
+    const disallowMatch = /^disallow:\s*\/\s*$/i.exec(line);
+    if (disallowMatch) {
+      for (const agent of currentAgents) blockedAgents.add(agent.toLowerCase());
+    }
+  }
+
+  const allBlocked = AI_CRAWLER_USER_AGENTS.every((bot) => blockedAgents.has(bot.toLowerCase()));
+  if (allBlocked) {
+    return [
+      {
+        pageUrl: null,
+        severity: "notice",
+        checkType: "ai-bots-blocked",
+        message: "All known AI crawlers are blocked in robots.txt",
+      },
+    ];
+  }
+  return [
+    {
+      pageUrl: null,
+      severity: "notice",
+      checkType: "ai-bots-allowed",
+      message: "Some or all AI crawlers are not blocked in robots.txt (this may be intentional)",
+    },
+  ];
 }
 
 /** Returns the page URLs this site wants indexed, by following
@@ -163,6 +215,7 @@ async function crawlPage(url: string): Promise<CrawledPage> {
     metaDescription: null,
     h1Count: 0,
     canonicalHref: null,
+    hasStructuredData: false,
     imagesMissingAlt: 0,
     internalLinks: [],
     mixedContentCount: 0,
@@ -213,6 +266,11 @@ async function crawlPage(url: string): Promise<CrawledPage> {
         const href = el.getAttribute("href");
         if (href && toAbsoluteSameOrigin(href, url)) page.internalLinks.push(href);
         if (href?.startsWith("http://")) page.mixedContentCount += 1;
+      },
+    })
+    .on("script[type=\"application/ld+json\"]", {
+      element() {
+        page.hasStructuredData = true;
       },
     })
     .on("script[src], img[src], link[rel=stylesheet][href]", {
@@ -339,7 +397,8 @@ export function computeHealthScore(errorCount: number, warningCount: number, not
 export async function runSiteAudit(_env: Env): Promise<AuditResult> {
   const issues: CrawledIssue[] = [];
 
-  issues.push(...(await checkRobotsTxt()));
+  const { issues: robotsIssues, robotsText } = await checkRobotsTxt();
+  issues.push(...robotsIssues, ...checkAiBotsStatus(robotsText));
   issues.push(...(await checkLlmsTxt()));
 
   const { urls, issues: sitemapIssues } = await fetchSitemapPageUrls();

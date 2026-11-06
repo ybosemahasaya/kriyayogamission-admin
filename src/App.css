@@ -1128,6 +1128,7 @@
 }
 
 .audit-issue-row {
+  appearance: none;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -1280,6 +1281,186 @@
   margin: 0;
   font-size: 0.85rem;
   color: var(--text-primary);
+}
+
+.audit-modal-section-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.site-audit-tabs {
+  margin-top: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.audit-severity-text-ok {
+  color: #34d399;
+}
+
+.audit-top-issues-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.audit-top-issues-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-top-issues-list li:last-child {
+  border-bottom: none;
+}
+
+.audit-top-issues-type {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.audit-top-issues-count {
+  color: var(--text-muted);
+}
+
+.audit-stat-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.audit-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-stat-row:last-child {
+  border-bottom: none;
+}
+
+.audit-stat-row dt {
+  color: var(--text-secondary);
+}
+
+.audit-stat-row dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.audit-compare-picker {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.audit-compare-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.audit-compare-picker select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  min-width: 220px;
+}
+
+.audit-compare-arrow {
+  color: var(--text-muted);
+  padding-bottom: 0.6rem;
+}
+
+.audit-compare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.audit-compare-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-primary);
+}
+
+.audit-status-pill {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.audit-status-pill-ok {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.audit-status-pill-bad {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.audit-status-pill-neutral {
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--notice);
+}
+
+.audit-status-card-description {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.audit-ai-search-note {
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 0.5rem;
+}
+
+.audit-ai-search-note h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+.audit-ai-search-note p {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.audit-ai-search-note p:last-child {
+  margin-bottom: 0;
 }
 
 .audit-severity-badge {

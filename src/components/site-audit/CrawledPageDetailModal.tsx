@@ -1,6 +1,6 @@
-import type { AuditIssueDTO, AuditPageDTO } from "../../shared/site-audit";
+import type { AuditIssueDTO, AuditPageDTO } from "../../../shared/site-audit";
+import { Modal } from "../Modal";
 import { AuditIssueRow } from "./AuditIssueRow";
-import { Modal } from "./Modal";
 
 interface Props {
   page: AuditPageDTO;
@@ -18,9 +18,9 @@ function pathOf(url: string): string {
 
 /** Mirrors the per-page drill-down SEMrush shows when you click a
  * crawled page (back arrow, status badge, Summary, Issues Found). Reuses
- * the generic Modal shell and the same AuditIssueRow used in the main
- * Issues list, so a page's issues get the identical About/How-to-fix
- * detail, not a simplified duplicate. */
+ * the generic Modal shell and the same AuditIssueRow used in the Issues
+ * tab, so a page's issues get the identical About/How-to-fix detail, not
+ * a simplified duplicate. */
 export function CrawledPageDetailModal({ page, issues, onClose }: Props) {
   const isHealthy = page.statusCode !== null && page.statusCode < 400;
 
@@ -46,9 +46,17 @@ export function CrawledPageDetailModal({ page, issues, onClose }: Props) {
           <dt>H1 count</dt>
           <dd>{page.h1Count}</dd>
         </div>
+        <div>
+          <dt>Canonical</dt>
+          <dd>{page.canonicalHref ?? "--"}</dd>
+        </div>
+        <div>
+          <dt>Structured data</dt>
+          <dd>{page.hasStructuredData ? "Found" : "Not found"}</dd>
+        </div>
       </dl>
 
-      <h3 className="analytics-section-title">Issues found ({issues.length})</h3>
+      <h3 className="audit-modal-section-title">Issues found ({issues.length})</h3>
       {issues.length === 0 ? (
         <p className="empty-state">No issues found on this page.</p>
       ) : (

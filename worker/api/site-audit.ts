@@ -69,6 +69,21 @@ export async function handleSiteAuditRunsRequest(env: Env): Promise<Response> {
   return json(results.map(rowToSummaryDTO));
 }
 
+/** Fetches one specific past run's full detail by id -- used by the
+ * Compare Crawls tab, which needs two arbitrary runs' pages/issues, not
+ * just the latest one. */
+export async function handleSiteAuditRunDetailRequest(env: Env, idParam: string): Promise<Response> {
+  const dbError = requireDb(env);
+  if (dbError) return dbError;
+
+  const id = Number(idParam);
+  if (!Number.isInteger(id)) return errorResponse("Invalid run id", 400);
+
+  const detail = await getRunDetail(env, id);
+  if (!detail) return errorResponse("Run not found", 404);
+  return json(detail);
+}
+
 interface RunRow {
   id: number;
   started_at: string;
@@ -148,8 +163,8 @@ async function persistPagesAndIssues(
     const pageInserts = pages.map((page) =>
       env.DB!.prepare(
         `INSERT INTO site_audit_pages
-          (run_id, url, status_code, title, meta_description, h1_count, issue_count)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          (run_id, url, status_code, title, meta_description, h1_count, canonical_href, has_structured_data, issue_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         runId,
         page.url,
@@ -157,6 +172,8 @@ async function persistPagesAndIssues(
         page.title,
         page.metaDescription,
         page.h1Count,
+        page.canonicalHref,
+        page.hasStructuredData ? 1 : 0,
         issueCountByUrl.get(page.url) ?? 0,
       ),
     );
@@ -185,7 +202,7 @@ async function getRunDetail(env: Env, runId: number): Promise<AuditRunDetailDTO 
   if (!runRow) return null;
 
   const { results: pageRows } = await env.DB!.prepare(
-    `SELECT id, url, status_code, title, meta_description, h1_count, issue_count
+    `SELECT id, url, status_code, title, meta_description, h1_count, canonical_href, has_structured_data, issue_count
      FROM site_audit_pages WHERE run_id = ? ORDER BY id ASC`,
   )
     .bind(runId)
@@ -196,6 +213,8 @@ async function getRunDetail(env: Env, runId: number): Promise<AuditRunDetailDTO 
       title: string | null;
       meta_description: string | null;
       h1_count: number;
+      canonical_href: string | null;
+      has_structured_data: number;
       issue_count: number;
     }>();
 
@@ -214,6 +233,8 @@ async function getRunDetail(env: Env, runId: number): Promise<AuditRunDetailDTO 
     title: row.title,
     metaDescription: row.meta_description,
     h1Count: row.h1_count,
+    canonicalHref: row.canonical_href,
+    hasStructuredData: row.has_structured_data === 1,
     issueCount: row.issue_count,
   }));
 

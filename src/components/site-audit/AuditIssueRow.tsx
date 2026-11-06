@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { AuditIssueDTO } from "../../shared/site-audit";
-import { AUDIT_CHECK_INFO, DEFAULT_CHECK_INFO } from "../../shared/site-audit-issue-info";
-import { ChevronDownIcon } from "./icons";
+import type { AuditIssueDTO } from "../../../shared/site-audit";
+import { AUDIT_CHECK_INFO, DEFAULT_CHECK_INFO } from "../../../shared/site-audit-issue-info";
+import { ChevronDownIcon } from "../icons";
 
 interface Props {
   issue: AuditIssueDTO;
@@ -19,11 +19,10 @@ function relativePagePath(url: string): string {
   }
 }
 
-/** One expandable issue row -- used both in SiteAuditPage's
- * severity-grouped Issues list and in CrawledPageDetailModal's
- * per-page issue list. Manages its own open/closed state rather than
- * lifting it to a parent Set<id>, since each row's disclosure is
- * independent of every other row's. */
+/** One expandable issue row -- used in the Issues tab's severity-grouped
+ * list and in CrawledPageDetailModal's per-page issue list. Manages its
+ * own open/closed state rather than lifting it to a parent Set<id>,
+ * since each row's disclosure is independent of every other row's. */
 export function AuditIssueRow({ issue, showPageLink = true }: Props) {
   const [expanded, setExpanded] = useState(false);
   const info = AUDIT_CHECK_INFO[issue.checkType] ?? DEFAULT_CHECK_INFO;

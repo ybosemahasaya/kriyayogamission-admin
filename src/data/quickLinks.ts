@@ -62,6 +62,16 @@ export const QUICK_LINKS: QuickLinkGroup[] = [
     ],
   },
   {
+    category: "SEO Tools",
+    links: [
+      {
+        label: "SEMrush — Site Audit Issue #112",
+        url: "https://www.semrush.com/siteaudit/campaign/31894957/review/issue/detail/112?sort=url_asc",
+        description: "Campaign 31894957, issue detail drill-down (URL list sorted ascending) -- external SEMrush audit, separate from this app's own Site Audit tab",
+      },
+    ],
+  },
+  {
     category: "Email",
     links: [
       {

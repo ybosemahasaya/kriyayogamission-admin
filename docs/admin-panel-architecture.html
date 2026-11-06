@@ -547,7 +547,7 @@
 
     <section>
       <h2 class="text-xl font-bold text-stone-800 mb-1">Phase 2+ — Future roadmap (someday-shelf)</h2>
-      <p class="text-stone-500 text-sm mb-4">Explicitly planned for later: GA4 reporting inside the admin panel, and expanding beyond gallery images into general site-content management.</p>
+      <p class="text-stone-500 text-sm mb-4">Explicitly planned for later: GA4 reporting inside the admin panel (shipped), and a batch of "ease of maintaining kriyayogamission.org" enhancements proposed 2026-11-06 -- contact form logging, FAQ/quotes/banner/books/guru-bio content managers, a per-page SEO editor, a dashboard home page, a 404 report, and the broader general-site-content-management umbrella they all fall under.</p>
       <div class="space-y-4" id="checklist-phase2"></div>
     </section>
 
@@ -690,7 +690,79 @@ const phase2Items = [
     id: "general-cms-expansion",
     title: "Expand beyond gallery images into general site-content management",
     path: "D1 schema expansion + new admin UI sections",
-    detail: "Contact info, FAQ entries, book listings, testimonials/quotes, event announcement banners -- content currently hardcoded in src/data/site.ts and various .astro files. Natural evolution of the same pattern already built for the gallery: admin edits -> D1 row changes -> deploy hook -> public site rebuild. Effectively becomes a lightweight headless CMS over time."
+    detail: "Contact info, FAQ entries, book listings, testimonials/quotes, event announcement banners -- content currently hardcoded in src/data/site.ts and various .astro files. Natural evolution of the same pattern already built for the gallery: admin edits -> D1 row changes -> deploy hook -> public site rebuild. Effectively becomes a lightweight headless CMS over time. The items below are the specific, scoped-out pieces of this umbrella, proposed 2026-11-06 after comparing against WordPress/wp-admin and other professional dashboards."
+  },
+  {
+    id: "contact-form-log",
+    title: "Persist contact form submissions to D1 (currently email-only, no record)",
+    path: "Admin Worker: new D1 table + /api/contact-submissions routes; public site's existing /api/contact Worker route",
+    detail: "The public site's /api/contact route (worker.js) only sends an email via Resend today -- if that email bounces, lands in spam, or Resend has an outage, the inquiry is lost with zero record anywhere. Storing every submission in D1 (sender, message, timestamp, read/replied status) and surfacing it in the admin panel closes a real, currently invisible gap -- arguably the single highest-value item in this whole list. Same CRUD pattern already proven by Gallery."
+  },
+  {
+    id: "faq-manager",
+    title: "FAQ manager (add/edit/reorder/delete)",
+    path: "D1 table + admin UI; replaces the hardcoded `faqs` array inside src/components/FAQSection.astro",
+    detail: "FAQs are hardcoded directly inside the Astro component today (not even lifted into src/data/site.ts) -- a single wording tweak currently requires a code change and redeploy. Same shape as Gallery CRUD, just a smaller/simpler table."
+  },
+  {
+    id: "announcement-banner",
+    title: "Site-wide announcement banner (on/off toggle, text + link)",
+    path: "D1 (single-row settings table) + a new banner slot in BaseLayout.astro",
+    detail: "Time-sensitive updates (e.g. 'Guru Purnima 2026 registrations open') currently need a code deploy to post or remove. A simple admin-editable on/off toggle with text + link avoids that for every future announcement. WordPress-world equivalent: a sitewide-notice plugin."
+  },
+  {
+    id: "quotes-testimonials-manager",
+    title: "Quotes/testimonials manager",
+    path: "D1 table + admin UI; replaces hardcoded content in src/components/QuoteBanner.astro",
+    detail: "Same hardcoded-in-component problem as FAQs. Low effort given how small/simple the data shape is (quote text + attribution)."
+  },
+  {
+    id: "guru-lineage-content-editor",
+    title: "Guru lineage / About-page content editor",
+    path: "D1 table + admin UI; replaces the GURUS array in src/data/site.ts",
+    detail: "Guru biographies, dates, and role descriptions are hardcoded in site.ts today. Bigger win than FAQ/quotes since this content is long-form and the most likely to genuinely need an edit (new guru added, bio correction) without a developer in the loop."
+  },
+  {
+    id: "books-manager",
+    title: "Books/publications manager",
+    path: "D1 table + admin UI; replaces the BOOKS array in src/data/site.ts",
+    detail: "Title, purchase links (Amazon/Flipkart), and ISBN per book are hardcoded today. Small, simple data shape -- same low-effort pattern as FAQ/quotes."
+  },
+  {
+    id: "seo-meta-editor",
+    title: "Per-page SEO meta editor (title, description, OG image)",
+    path: "D1 table keyed by page path, read by BaseLayout.astro at build time",
+    detail: "Pairs naturally with the Search Console integration already shipped -- today, meta title/description/OG-image per page can only be changed by editing .astro frontmatter directly. An admin-editable version closes that gap, similar in spirit to Yoast SEO in WordPress."
+  },
+  {
+    id: "admin-dashboard-home",
+    title: "Admin dashboard home / overview landing page",
+    path: "New admin UI route, read-only aggregation of data sources that already exist",
+    detail: "The admin panel currently lands straight on the Gallery tab. A proper landing page -- recent contact messages, this week's traffic snapshot, recent gallery uploads, pending items -- gives a single at-a-glance view, matching the home-dashboard pattern of WordPress, Shopify, Vercel, etc. Pure aggregation; no new data model needed."
+  },
+  {
+    id: "404-broken-link-report",
+    title: "404 / broken-link report",
+    path: "Existing GA4 Data API connection, new dashboard card/query (pagePath = 404-equivalent)",
+    detail: "Costs very little to add since the GA4 Data API connection already exists for the Analytics tab -- a simple 'top 404 pagePaths this month' report catches broken links/old bookmarks before they quietly hurt SEO."
+  },
+  {
+    id: "general-media-library",
+    title: "General media library beyond gallery images",
+    path: "R2 + D1, broader scope than the fixed-3-category gallery schema",
+    detail: "Images used in Hero/About/Mission sections are currently static files in the public repo, not admin-managed. Bigger scope than Gallery since these images are scattered across many components rather than one data model -- lower priority, but the natural 'finish the job' version of the media library."
+  },
+  {
+    id: "backup-export",
+    title: "Backup/export button (download all admin-managed content as JSON)",
+    path: "Admin Worker: new /api/export route reading across all D1 tables",
+    detail: "Cheap insurance once there's more than one content type living in D1 (gallery, FAQ, quotes, contact log, etc.) -- a one-click download protects against accidental mass-deletion or a D1 mishap."
+  },
+  {
+    id: "scheduled-publishing",
+    title: "Scheduled publishing for the announcement banner (auto on/off by date)",
+    path: "D1 columns (start/end datetime) + a Cron Trigger or build-time date check",
+    detail: "Nice-to-have refinement once the manual banner toggle (see announcement-banner item above) exists -- not urgent, a manual toggle already captures most of the value."
   },
   {
     id: "multi-role-permissions",
@@ -702,7 +774,7 @@ const phase2Items = [
     id: "audit-log",
     title: "Audit log of admin changes (who changed what, when)",
     path: "D1 (a simple append-only changes table)",
-    detail: "Cheap insurance once more than one person has write access -- makes it trivial to answer 'who deleted that image' without guessing."
+    detail: "Cheap insurance once more than one person has write access -- makes it trivial to answer 'who deleted that image' without guessing. No longer theoretical: a second admin's email was added to the Access allowlist on 2026-11-06, so this has moved from 'someday' to 'worth prioritizing soon'."
   },
   {
     id: "upload-image-optimization",

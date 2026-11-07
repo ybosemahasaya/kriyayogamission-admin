@@ -477,16 +477,18 @@
       <h3 class="font-semibold text-stone-800 mb-2">Contacts directory tab (added 2026-11-07)</h3>
       <p class="text-stone-600 leading-relaxed mb-3">
         A fifth tab, <strong>Contacts</strong>, alongside All/New/Read/Replied -- a deduplicated "who has
-        contacted us" view: Name, Email, Phone, Address, message count, and first/last-contacted dates.
+        contacted us" view: Email, Name, Phone, Address, message count, and first/last-contacted dates.
         Deliberately excludes message content entirely, per explicit request -- this is a contact
-        directory for outreach/mailing-list purposes, not a message archive.
+        directory for outreach/mailing-list purposes, not a message archive. <strong>Email, not name, is
+        the directory's true primary key</strong> -- two different people can share a name, but never the
+        same email -- and the table's column order leads with Email for exactly that reason.
       </p>
       <p class="text-stone-600 leading-relaxed mb-3">
         Computed entirely from <code class="bg-stone-100 px-1 rounded">contact_messages</code> at request
         time (<code class="bg-stone-100 px-1 rounded">GET /api/contacts</code>, see
         <code class="bg-stone-100 px-1 rounded">worker/api/contacts.ts</code>) -- there is no separate table
         and no write path to keep in sync, so this view can never drift from the underlying messages. SQLite's
-        <code class="bg-stone-100 px-1 rounded">ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC)</code>
+        <code class="bg-stone-100 px-1 rounded">ROW_NUMBER() OVER (PARTITION BY email_key ORDER BY created_at DESC)</code>
         window function picks each email's single most recent row for name/phone/address (a plain
         <code class="bg-stone-100 px-1 rounded">MAX()</code> would only give the max of each column
         independently, not "all three columns from the same latest submission"), joined against a separate
@@ -495,6 +497,23 @@
         the same behavior you'd want from an up-to-date mailing list. Verified locally: two submissions
         under the same email correctly collapsed into one directory row with the latest details and a
         message count of 2.
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Email normalization (added 2026-11-07):</strong> the grouping key is
+        <code class="bg-stone-100 px-1 rounded">LOWER(TRIM(email))</code>, not the raw column -- without
+        this, "John@Example.com" and "john@example.com" would be treated as two different contacts under
+        SQLite's default case-sensitive text comparison, silently breaking the "email is the primary key"
+        guarantee. Both write paths (<code class="bg-stone-100 px-1 rounded">worker/api/public-contact.ts</code>'s
+        live ingest and the Resend backfill handler) now store emails pre-normalized
+        (<code class="bg-stone-100 px-1 rounded">.trim().toLowerCase()</code>) so this stays correct going
+        forward regardless of how a visitor capitalized their own email; <code class="bg-stone-100 px-1 rounded">migrations/0006_normalize_contact_message_emails.sql</code>
+        is a one-time, idempotent cleanup for any rows written before this fix. The read-side query's own
+        normalization means correctness never actually depended on that migration having been run -- it's
+        data hygiene, not a required step. Verified locally: two rows manually inserted with mismatched
+        casing/whitespace ("Casey@Example.com" and "casey@example.com ") correctly collapsed into one
+        contact before the migration ran (proving the read-side defense works standalone), and the
+        migration itself correctly rewrote both rows' stored values to the identical canonical form
+        afterward.
       </p>
 
       <h3 class="font-semibold text-stone-800 mb-2">Resend daily send limit tracking (added 2026-11-07)</h3>
@@ -878,7 +897,7 @@ const phase2Items = [
     id: "contact-form-log",
     title: "Persist contact form submissions to D1 (currently email-only, no record)",
     path: "Admin Worker: new D1 table + /api/contact-messages + /api/public/contact-messages routes; public site's existing /api/contact Worker route",
-    detail: "SHIPPED 2026-11-07: contact_messages D1 table, full admin CRUD (list/filter-by-status/mark read-replied/delete), and a Contact Messages sidebar page with per-status tabs. Also went further than originally scoped: an email-send metrics card (sent today/this month/all-time + a 14-day sparkline + per-delivery-status counts), sourced live from Resend's own GET /emails API, not re-derived from our own rows -- see 'Email metrics' in the Technical Design section above. Further extended same-day with a one-time, idempotent historical backfill (POST /api/contact-messages/backfill-from-resend) that recovers pre-feature submissions by parsing them back out of Resend's own notification-email HTML -- see 'Historical backfill' in the Technical Design section; requires migrations/0005_add_contact_messages_backfilled.sql in addition to 0004. The public site's worker.js change persists every submission BEFORE calling Resend (not after), specifically so a Resend outage/bounce/bad-key can never again cause total data loss -- verified locally end-to-end with both Workers running side by side. Still outstanding, all manual/one-time: (1) run migrations/0004 AND migrations/0005 against the REMOTE D1 database (`wrangler d1 execute kriyayogamission-admin-db --remote --file=migrations/0004_create_contact_messages.sql`, then the same for 0005); (2) `wrangler secret put RESEND_API_KEY_ADMINPANEL` (a BRAND NEW Resend API key, deliberately never the public site's existing sending key, per explicit request -- create it fresh in the Resend dashboard) and `wrangler secret put CONTACT_INGEST_TOKEN` on this (admin) Worker; (3) set CONTACT_INGEST_TOKEN (same value) as a secret AND ADMIN_CONTACT_API_URL as a plain var on the PUBLIC SITE's Worker -- this is the one step that touches the restricted project's config, flagged for explicit human sign-off per the STRICT RESTRICTION banner above, not done automatically; (4) add a Cloudflare Access bypass rule for /api/public/contact-messages, same mechanism already used for /images/* and /api/public/gallery; (5) once (1)-(4) are done, click 'Import historical messages from Resend' once to recover any pre-feature submissions. Until (2)-(4) are done, both sides degrade safely -- this Worker returns a clear 503, and the public site's contact form behaves exactly as it did before this change.",
+    detail: "SHIPPED 2026-11-07: contact_messages D1 table, full admin CRUD (list/filter-by-status/mark read-replied/delete), and a Contact Messages sidebar page with per-status tabs. Also went further than originally scoped: an email-send metrics card (sent today/this month/all-time + a 14-day sparkline + per-delivery-status counts), sourced live from Resend's own GET /emails API, not re-derived from our own rows -- see 'Email metrics' in the Technical Design section above. Further extended same-day with a one-time, idempotent historical backfill (POST /api/contact-messages/backfill-from-resend) that recovers pre-feature submissions by parsing them back out of Resend's own notification-email HTML -- see 'Historical backfill' in the Technical Design section; requires migrations/0005_add_contact_messages_backfilled.sql in addition to 0004. The public site's worker.js change persists every submission BEFORE calling Resend (not after), specifically so a Resend outage/bounce/bad-key can never again cause total data loss -- verified locally end-to-end with both Workers running side by side. Still outstanding, all manual/one-time: (1) run migrations/0004, 0005, AND 0006 against the REMOTE D1 database (`wrangler d1 execute kriyayogamission-admin-db --remote --file=migrations/0004_create_contact_messages.sql`, then the same for 0005 and 0006 -- 0006 is optional data hygiene, not strictly required for correctness, see 'Email normalization' in the Technical Design section); (2) `wrangler secret put RESEND_API_KEY_ADMINPANEL` (a BRAND NEW Resend API key, deliberately never the public site's existing sending key, per explicit request -- create it fresh in the Resend dashboard) and `wrangler secret put CONTACT_INGEST_TOKEN` on this (admin) Worker; (3) set CONTACT_INGEST_TOKEN (same value) as a secret AND ADMIN_CONTACT_API_URL as a plain var on the PUBLIC SITE's Worker -- this is the one step that touches the restricted project's config, flagged for explicit human sign-off per the STRICT RESTRICTION banner above, not done automatically; (4) add a Cloudflare Access bypass rule for /api/public/contact-messages, same mechanism already used for /images/* and /api/public/gallery; (5) once (1)-(4) are done, click 'Import historical messages from Resend' once to recover any pre-feature submissions. Until (2)-(4) are done, both sides degrade safely -- this Worker returns a clear 503, and the public site's contact form behaves exactly as it did before this change.",
     done: true
   },
   {

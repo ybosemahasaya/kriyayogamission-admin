@@ -46,7 +46,13 @@ function requireIngestToken(request: Request, env: Env): Response | null {
 async function create(request: Request, env: Env): Promise<Response> {
   const body = await request.json<Partial<CreateContactMessageRequest>>().catch(() => null);
   const name = (body?.name ?? "").trim();
-  const email = (body?.email ?? "").trim();
+  // Lowercased, not just trimmed -- email is the closest thing this table
+  // has to a natural primary key (see shared/contacts.ts's Contacts
+  // directory, which groups by it), and "John@Example.com" vs
+  // "john@example.com" must resolve to the same contact. Every mainstream
+  // mail provider already treats the local part case-insensitively in
+  // practice, so normalizing here costs nothing real.
+  const email = (body?.email ?? "").trim().toLowerCase();
   const message = (body?.message ?? "").trim();
   const phone = (body?.phone ?? "").trim();
   const address = (body?.address ?? "").trim();

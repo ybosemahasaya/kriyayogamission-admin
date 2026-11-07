@@ -185,13 +185,17 @@ export async function handleContactMessagesBackfillRequest(env: Env): Promise<Re
     const id = crypto.randomUUID();
     // status defaults to 'read' (not 'new') and source_ip is NULL --
     // these were already seen via the original email, and Resend never
-    // knew the visitor's IP. See migrations/0005's comment.
+    // knew the visitor's IP. See migrations/0005's comment. Email is
+    // lowercased for the same reason as the live ingest path in
+    // worker/api/public-contact.ts -- it's the Contacts directory's dedup
+    // key, so it must be stored canonically.
+    const normalizedEmail = parsed.email.toLowerCase();
     await env.DB!.prepare(
       `INSERT INTO contact_messages
         (id, name, email, phone, address, message, status, email_sent, resend_message_id, source_ip, created_at, backfilled)
        VALUES (?, ?, ?, ?, ?, ?, 'read', 1, ?, NULL, ?, 1)`,
     )
-      .bind(id, parsed.name, parsed.email, parsed.phone, parsed.address, parsed.message, candidate.id, candidate.created_at)
+      .bind(id, parsed.name, normalizedEmail, parsed.phone, parsed.address, parsed.message, candidate.id, candidate.created_at)
       .run();
     imported++;
   }

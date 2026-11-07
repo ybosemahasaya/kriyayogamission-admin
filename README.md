@@ -112,14 +112,10 @@ row and its own ID:
 3. Back on the `admin-panel-edge-analytics` token -> Edit -> **Add new
    policy** (don't add this to the existing Zone row -- it needs its
    own row scoped to **Account**, not Zone).
-4. Resource: this one Cloudflare account. Permission: search for
-   "Access" and look for something read-only related to Access audit
-   logs/authentication logs. **Honest caveat:** the exact permission
-   name wasn't confirmed against the live token builder before this
-   was built -- if the "Recent admin panel logins" table on Edge
-   Analytics shows an error after you wire this up, paste the exact
-   error to Rio and we'll find the right one together. It'll be a quick
-   fix, same as the WAF firewall breakdown's Pro-plan discovery earlier.
+4. Resource: this one Cloudflare account. Permission: **Access: Audit
+   Logs: Read** (confirmed against the live permission catalog --
+   distinct from "Access: Apps and Policies," which only covers
+   app/policy config, not the login event stream).
 5. Save -- no new secret needed, same `CLOUDFLARE_API_TOKEN`.
 
 ## Branch strategy

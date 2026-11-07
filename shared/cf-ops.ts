@@ -42,3 +42,15 @@ export interface AccessLoginEventDTO {
   ipAddress: string | null;
   createdAt: string;
 }
+
+/** Which tools (GA4, Meta Pixel, custom HTML, etc.) are configured in
+ * this zone's Zaraz setup, and whether each is enabled -- a read-only
+ * reference, nothing editable. Low-stakes, low-urgency widget (config
+ * that rarely changes, already viewable in the Cloudflare dashboard),
+ * included mainly because this project already documents its Zaraz/GA4
+ * setup elsewhere (zaraz-ga4-configuration.html). */
+export interface ZarazToolDTO {
+  name: string;
+  type: string;
+  enabled: boolean;
+}

@@ -57,6 +57,25 @@ provisioned for **this** project and their bindings are uncommented in
 5. Configure a Cloudflare Access Application gating that domain with an
    email allowlist.
 
+### Edge Analytics setup (Cloudflare GraphQL Analytics API)
+
+Surfaces bot/WAF-blocked traffic, cache hit ratio, and bandwidth for the
+**public** kriyayogamission.org zone -- read-only, via Cloudflare's own
+GraphQL API. See `shared/edge-analytics.ts` for why this is a different
+data source from both GA4 and Workers Analytics Engine.
+
+1. Cloudflare dashboard -> select the `kriyayogamission.org` zone ->
+   Overview tab -> copy the **Zone ID** shown in the right-hand sidebar.
+2. Add it to `wrangler.jsonc`'s `vars` block as `CLOUDFLARE_ZONE_ID`
+   (not sensitive -- same reasoning as `GA4_PROPERTY_ID` above).
+3. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token ->
+   custom token with **Zone > Analytics > Read**, scoped to the
+   `kriyayogamission.org` zone only.
+4. `npx wrangler secret put CLOUDFLARE_API_TOKEN` and paste that token.
+5. Deploy. The "Edge Analytics" sidebar page returns a 503 with a clear
+   message until both of these are set, same pattern as every other
+   optional integration in this project.
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

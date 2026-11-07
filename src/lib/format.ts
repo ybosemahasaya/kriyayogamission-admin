@@ -43,3 +43,21 @@ export function formatGa4Date(value: string): string {
     day: "numeric",
   });
 }
+
+/** Cloudflare's GraphQL httpRequests1dGroups returns dates as plain ISO
+ * "YYYY-MM-DD" strings -- no reparsing needed like formatGa4Date above. */
+export function formatIsoDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Cloudflare's edge-bandwidth totals arrive as raw bytes -- this is the
+ * same binary-prefix (1024-based) convention the Cloudflare dashboard
+ * itself uses for its own bandwidth figures. */
+export function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** exponent;
+  return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}

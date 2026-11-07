@@ -5,6 +5,7 @@ import { BulkActionBar } from "./components/BulkActionBar";
 import { BulkEditModal } from "./components/BulkEditModal";
 import { ContactMessagesPage } from "./components/ContactMessagesPage";
 import { EditImageModal } from "./components/EditImageModal";
+import { EdgeAnalyticsPage } from "./components/EdgeAnalyticsPage";
 import { Ga4Page } from "./components/Ga4Page";
 import { ManageCategoriesModal } from "./components/gallery/ManageCategoriesModal";
 import { GalleryGrid } from "./components/GalleryGrid";
@@ -142,6 +143,17 @@ function App() {
               <p>How kriyayogamission.org shows up in Google Search, and what people search to find it.</p>
             </header>
             <SearchConsolePage />
+          </>
+        ) : view === "edge-analytics" ? (
+          <>
+            <header className="main-header">
+              <h1>Edge Analytics</h1>
+              <p>
+                Server-side truth from Cloudflare's edge for kriyayogamission.org -- bot/WAF-blocked traffic, cache
+                hit ratio, and bandwidth that GA4 structurally cannot see.
+              </p>
+            </header>
+            <EdgeAnalyticsPage theme={theme} />
           </>
         ) : view === "site-audit" ? (
           <>

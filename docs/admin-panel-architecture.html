@@ -660,6 +660,13 @@
           same z-index and only stacked correctly by coincidence of DOM paint order; the modal overlay is now
           explicitly above both the sidebar (50) and the upload-progress panel (60) at z-index 70, so it's
           guaranteed to render on top regardless of source order.</li>
+        <li><strong>Favicon fixed (2026-11-07):</strong> the browser-tab icon was still the unmodified default Vite
+          starter-template mark -- never actually replaced with Kriya Yoga Mission branding. It's now a grayscale
+          (not full saffron/gold) render of the real lotus mark, generated from <code class="bg-stone-100 px-1 rounded">kym-logo.webp</code>
+          via Pillow, referenced from <code class="bg-stone-100 px-1 rounded">index.html</code>. The old
+          <code class="bg-stone-100 px-1 rounded">favicon.svg</code> was deleted. Known remaining loose end: the
+          large inline brand mark on the pre-login <code class="bg-stone-100 px-1 rounded">landing.html</code> sign-in
+          page still uses that same old generic shape -- out of scope of the favicon request, not yet fixed.</li>
       </ul>
     </section>
 

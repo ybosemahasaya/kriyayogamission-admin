@@ -19,11 +19,31 @@ export interface ApiRouteMetric {
   requests: number;
   errors: number;
   avgLatencyMs: number;
+  maxLatencyMs: number;
+}
+
+/** One day's requests/errors -- same shape family as
+ * EdgeAnalyticsDailyPoint, kept as its own type rather than reused
+ * since the two track genuinely different things (this admin panel's
+ * own API vs. the public site's zone-wide edge traffic). */
+export interface ApiDailyPoint {
+  date: string;
+  requests: number;
+  errors: number;
+}
+
+export interface ApiStatusBucket {
+  /** "2xx" | "3xx" | "4xx" | "5xx" */
+  bucket: string;
+  count: number;
 }
 
 export interface ApiMetricsSummaryDTO {
   totalRequests: number;
   totalErrors: number;
   avgLatencyMs: number;
+  maxLatencyMs: number;
   byRoute: ApiRouteMetric[];
+  daily: ApiDailyPoint[];
+  statusBuckets: ApiStatusBucket[];
 }

@@ -124,7 +124,7 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
           <h2 className="analytics-section-title">
             This admin panel's own API health (Workers Analytics Engine, not the public site)
           </h2>
-          <ApiObservabilitySection />
+          <ApiObservabilitySection theme={theme} />
         </>
       )}
     </div>

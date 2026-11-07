@@ -1,0 +1,63 @@
+/**
+ * Contact-form submission persisted to D1 -- see "contact-form-log" in
+ * docs/admin-panel-architecture.html. Closes the gap where a Resend
+ * outage/bounce/spam-filter meant an inquiry vanished with zero record.
+ */
+export type ContactMessageStatus = "new" | "read" | "replied";
+
+export const CONTACT_MESSAGE_STATUSES: ContactMessageStatus[] = ["new", "read", "replied"];
+
+export function isContactMessageStatus(value: unknown): value is ContactMessageStatus {
+  return typeof value === "string" && (CONTACT_MESSAGE_STATUSES as string[]).includes(value);
+}
+
+export interface ContactMessageDTO {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  message: string;
+  status: ContactMessageStatus;
+  /** Did the public site's own Resend call report success. Best-effort --
+   * see migrations/0004_create_contact_messages.sql for why this can lag
+   * or stay stale in rare cases. */
+  emailSent: boolean;
+  resendMessageId: string | null;
+  createdAt: string;
+}
+
+/** Counts by status, always present (0 if none), so the admin UI can
+ * render tab badges without a second round trip or client-side tallying. */
+export type ContactMessageStatusCounts = Record<ContactMessageStatus, number>;
+
+export interface ContactMessageListResponse {
+  messages: ContactMessageDTO[];
+  counts: ContactMessageStatusCounts;
+}
+
+/** Body the PUBLIC site's worker.js posts to create a durable record of a
+ * submission -- independent of whether the Resend notification email
+ * ultimately succeeds. See worker/api/public-contact.ts.
+ *
+ * sourceIp is explicit rather than inferred from the request's own
+ * CF-Connecting-IP header, because this request comes from the PUBLIC
+ * SITE's Worker (a Cloudflare-to-Cloudflare call), not from the original
+ * visitor's browser -- without this field, source_ip would silently
+ * record the public site's own Worker egress IP instead of the
+ * visitor's. */
+export interface CreateContactMessageRequest {
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  message: string;
+  sourceIp?: string;
+}
+
+/** Body the public site's worker.js posts AFTER its Resend call completes,
+ * to best-effort backfill whether the notification actually sent. */
+export interface UpdateContactMessageEmailStatusRequest {
+  emailSent: boolean;
+  resendMessageId?: string;
+}

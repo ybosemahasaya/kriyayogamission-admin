@@ -1,6 +1,9 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
+import { handleContactMessagesRequest } from "./api/contact-messages";
+import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
+import { handlePublicContactRequest } from "./api/public-contact";
 import { handlePublicGalleryRequest } from "./api/public-gallery";
 import { handleSearchConsoleRequest } from "./api/search-console";
 import {
@@ -129,6 +132,45 @@ export default {
         return await handlePublicGalleryRequest(request, env);
       } catch (err) {
         console.error("Public gallery API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    // Unauthenticated-by-Access write endpoint for the public site's own
+    // worker.js to POST/PATCH into -- guarded by a shared-secret bearer
+    // token instead (see worker/types.ts CONTACT_INGEST_TOKEN). Checked
+    // before the generic /api/contact-messages matcher below since both
+    // share a similar path shape.
+    const publicContactMatch = url.pathname.match(/^\/api\/public\/contact-messages(?:\/([^/]+))?\/?$/);
+    if (publicContactMatch) {
+      try {
+        return await handlePublicContactRequest(request, env, publicContactMatch[1] ?? null);
+      } catch (err) {
+        console.error("Public contact ingest API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    // Email-send metrics for the admin dashboard, sourced from Resend's
+    // own API -- see shared/email-metrics.ts.
+    if (url.pathname === "/api/email-metrics" && request.method === "GET") {
+      try {
+        return await handleEmailMetricsRequest(env);
+      } catch (err) {
+        console.error("Email metrics API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Admin-facing contact-message triage (list/mark read-or-replied/
+    // delete), behind Cloudflare Access same as /api/gallery.
+    const contactMessagesMatch = url.pathname.match(/^\/api\/contact-messages(?:\/([^/]+))?\/?$/);
+    if (contactMessagesMatch) {
+      try {
+        return await handleContactMessagesRequest(request, env, contactMessagesMatch[1] ?? null);
+      } catch (err) {
+        console.error("Contact messages API error:", err);
         return errorResponse("Internal server error", 500);
       }
     }

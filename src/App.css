@@ -1577,6 +1577,143 @@
   padding: 0 0.1rem;
 }
 
+.contact-messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.contact-message-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.contact-message-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.contact-message-card-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.contact-message-card-identity a {
+  color: var(--accent);
+}
+
+.contact-message-phone {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.contact-message-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.contact-status-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.contact-status-badge.contact-status-new {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.contact-status-badge.contact-status-read {
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--notice);
+}
+
+.contact-status-badge.contact-status-replied {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.contact-email-failed-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.contact-message-address {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.contact-message-body {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin-bottom: 0.9rem;
+}
+
+.contact-message-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.contact-daily-sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  height: 60px;
+  margin: 1rem 0 0.5rem;
+}
+
+.contact-daily-sparkline-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.contact-daily-sparkline-fill {
+  width: 100%;
+  min-height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
+.contact-last-event-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.contact-last-event-chip {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
 .audit-severity-badge {
   font-size: 0.7rem;
   font-weight: 700;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { bulkDeleteImages, listImages } from "./api/gallery";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { BulkEditModal } from "./components/BulkEditModal";
+import { ContactMessagesPage } from "./components/ContactMessagesPage";
 import { EditImageModal } from "./components/EditImageModal";
 import { Ga4Page } from "./components/Ga4Page";
 import { GalleryGrid } from "./components/GalleryGrid";
@@ -107,7 +108,15 @@ function App() {
       <Sidebar theme={theme} onToggleTheme={toggleTheme} activeView={view} onNavigate={setView} />
 
       <main className="app-main">
-        {view === "ga4" ? (
+        {view === "contact-messages" ? (
+          <>
+            <header className="main-header">
+              <h1>Contact Messages</h1>
+              <p>Every submission from the public contact form, persisted regardless of whether its notification email reached Resend.</p>
+            </header>
+            <ContactMessagesPage />
+          </>
+        ) : view === "ga4" ? (
           <>
             <header className="main-header">
               <h1>GA4</h1>

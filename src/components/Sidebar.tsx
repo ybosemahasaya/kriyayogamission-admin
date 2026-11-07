@@ -1,7 +1,7 @@
 import type { Theme } from "../hooks/useTheme";
-import { BarChartIcon, ImageIcon, LinkIcon, MoonIcon, SearchIcon, ShieldCheckIcon, SunIcon } from "./icons";
+import { BarChartIcon, ImageIcon, LinkIcon, MailIcon, MoonIcon, SearchIcon, ShieldCheckIcon, SunIcon } from "./icons";
 
-export type SidebarView = "gallery" | "links" | "ga4" | "search-console" | "site-audit";
+export type SidebarView = "gallery" | "contact-messages" | "links" | "ga4" | "search-console" | "site-audit";
 
 interface Props {
   theme: Theme;
@@ -30,6 +30,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <ImageIcon />
           Gallery
+        </button>
+        <button
+          type="button"
+          className={activeView === "contact-messages" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={() => onNavigate("contact-messages")}
+        >
+          <MailIcon />
+          Contact Messages
         </button>
 
         <span className="sidebar-nav-label">Analytics</span>

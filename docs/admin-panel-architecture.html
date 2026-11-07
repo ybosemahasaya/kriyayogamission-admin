@@ -342,6 +342,29 @@
       </div>
       <p class="text-stone-500 text-sm mb-4">Indexed on <code class="bg-stone-100 px-1 rounded">category</code> and <code class="bg-stone-100 px-1 rounded">display_order</code> for the gallery grid's filter/sort queries.</p>
 
+      <p class="text-stone-600 leading-relaxed mb-2">
+        A second D1 table, <code class="bg-stone-100 px-1 rounded">contact_messages</code>
+        (<code class="bg-stone-100 px-1 rounded">migrations/0004_create_contact_messages.sql</code>, added
+        2026-11-07 -- see "contact-form-log" below), persists every public contact-form submission:
+      </p>
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
+          <thead class="bg-stone-100 text-stone-600">
+            <tr><th class="text-left px-3 py-2">Column</th><th class="text-left px-3 py-2">Type</th><th class="text-left px-3 py-2">Purpose</th></tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr><td class="px-3 py-2 font-mono text-xs">id</td><td class="px-3 py-2">TEXT (PK)</td><td class="px-3 py-2 text-stone-500">UUID assigned at submission time</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">name / email / phone / address / message</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Raw form fields, unchanged from the existing contact form</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">status</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500"><code class="bg-stone-100 px-1 rounded">new</code> &rarr; <code class="bg-stone-100 px-1 rounded">read</code> &rarr; <code class="bg-stone-100 px-1 rounded">replied</code>, set by an admin</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">email_sent</td><td class="px-3 py-2">INTEGER (0/1)</td><td class="px-3 py-2 text-stone-500">Did the public site's Resend call report success -- written 0 at insert time, best-effort backfilled to 1 after the fact (see below)</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">resend_message_id</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Resend's own email id, for future cross-referencing; null until backfilled</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">source_ip</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">Visitor's IP, explicitly forwarded by the public site's Worker (NOT inferred from the request this Worker receives, which would otherwise capture the public site's own Worker egress IP)</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">created_at</td><td class="px-3 py-2">TEXT</td><td class="px-3 py-2 text-stone-500">ISO timestamp</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-stone-500 text-sm mb-4">Indexed on <code class="bg-stone-100 px-1 rounded">status</code> and <code class="bg-stone-100 px-1 rounded">created_at</code>.</p>
+
       <h3 class="font-semibold text-stone-800 mb-2">API reference (worker/api/*, all behind Cloudflare Access unless noted)</h3>
       <div class="overflow-x-auto mb-4">
         <table class="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
@@ -360,9 +383,47 @@
             <tr><td class="px-3 py-2 font-mono text-xs">/api/search-console</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">GSC summary for the requested range -- clicks/impressions/CTR/position + deltas, top queries, top pages, device breakdown</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/api/me</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">Reads the <code class="bg-stone-100 px-1 rounded">Cf-Access-Authenticated-User-Email</code> header Access already injected -- powers the Profile menu, no JWT verification needed</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/welcome</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated</strong> -- branded landing page shown before the Access login screen (an Access path-bypass, same mechanism as /images/*)</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/contact-messages</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">List submissions (optional <code class="bg-stone-100 px-1 rounded">?status=</code> filter) + status counts</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/contact-messages/:id</td><td class="px-3 py-2">PATCH / DELETE</td><td class="px-3 py-2 text-stone-500">Update status (new/read/replied) or delete a submission</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/public/contact-messages</td><td class="px-3 py-2">POST</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated-by-Access, bearer-token-guarded</strong> -- the public site's worker.js calls this to persist a submission; see "Cross-repo contact ingest" below</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/public/contact-messages/:id</td><td class="px-3 py-2">PATCH</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated-by-Access, bearer-token-guarded</strong> -- best-effort backfill of email_sent/resend_message_id after the public site's Resend call completes</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/email-metrics</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">Email-send KPIs sourced live from Resend's own <code class="bg-stone-100 px-1 rounded">GET /emails</code> API -- see "Email metrics" below</td></tr>
           </tbody>
         </table>
       </div>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Cross-repo contact ingest (added 2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        Closes the "contact-form-log" gap below without re-architecting who sends the notification email.
+        The public site's <code class="bg-stone-100 px-1 rounded">worker.js</code> keeps its existing,
+        unchanged Resend call -- this is purely an additive safety net alongside it. Flow per submission:
+      </p>
+      <ol class="list-decimal list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li><strong>Persist first, awaited:</strong> before calling Resend at all, <code class="bg-stone-100 px-1 rounded">worker.js</code> POSTs the raw submission to this Worker's <code class="bg-stone-100 px-1 rounded">/api/public/contact-messages</code>, creating a D1 row with <code class="bg-stone-100 px-1 rounded">email_sent=0</code>. Deliberately awaited, not fire-and-forget -- if this were <code class="bg-stone-100 px-1 rounded">ctx.waitUntil</code>'d instead, a Resend-side hang or an unhandled exception further down could still end the request before the durable write happened, recreating the exact gap this feature exists to close.</li>
+        <li>The existing Resend call runs exactly as before -- same request shape, same error handling, same response to the visitor. This step is completely untouched.</li>
+        <li><strong>Backfill, fire-and-forget:</strong> once Resend's call resolves (success or failure), <code class="bg-stone-100 px-1 rounded">worker.js</code> fires a <code class="bg-stone-100 px-1 rounded">ctx.waitUntil</code>'d PATCH to <code class="bg-stone-100 px-1 rounded">/api/public/contact-messages/:id</code> with the real outcome. Allowed to be lossy -- the row's mere existence from step 1 is the actual safety net.</li>
+      </ol>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Auth:</strong> a shared-secret bearer token (<code class="bg-stone-100 px-1 rounded">CONTACT_INGEST_TOKEN</code>), same value set via <code class="bg-stone-100 px-1 rounded">wrangler secret put</code> on <em>both</em> Workers -- simpler than Cloudflare Access Service Tokens, consistent with the "URL itself is the credential" simplicity already established by the deploy-hook mechanism. <code class="bg-stone-100 px-1 rounded">worker/types.ts</code> fails closed (503, not open) if the token isn't configured on this side yet.
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Backward compatibility, verified:</strong> both new runtime vars (<code class="bg-stone-100 px-1 rounded">ADMIN_CONTACT_API_URL</code>, <code class="bg-stone-100 px-1 rounded">CONTACT_INGEST_TOKEN</code>) are optional on the public site's Worker -- if either is unset, <code class="bg-stone-100 px-1 rounded">worker.js</code>'s new code paths are silent no-ops and the contact form behaves <em>exactly</em> as it did before this change (confirmed locally: ran <code class="bg-stone-100 px-1 rounded">wrangler dev</code> for both Workers side by side, submitted with the vars unset -- identical response, no new log noise -- then again with them set and a deliberately-broken Resend key -- the visitor still saw the same error message as before, but the submission was captured in D1 with <code class="bg-stone-100 px-1 rounded">email_sent: false</code>, exactly the scenario this feature exists for).
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Email metrics (added 2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <code class="bg-stone-100 px-1 rounded">worker/lib/resend-client.ts</code> pages through Resend's own
+        <code class="bg-stone-100 px-1 rounded">GET /emails</code> list endpoint (cursor-based, 100/page,
+        capped at 20 pages / 2000 emails -- comfortably above this site's real volume) to compute total
+        sent, sent today, sent this month, a 14-day daily breakdown, and a count per Resend
+        <code class="bg-stone-100 px-1 rounded">last_event</code> (sent/delivered/bounced/complained/...).
+        This answers "how many emails have we actually sent / did they deliver" directly from Resend's own
+        records, which is a different (and more authoritative) question than "how many contact messages did
+        we receive" -- the two numbers can diverge, and that divergence is itself surfaced as
+        <code class="bg-stone-100 px-1 rounded">attemptedButNeverReachedResend</code> (count of
+        <code class="bg-stone-100 px-1 rounded">contact_messages</code> rows where <code class="bg-stone-100 px-1 rounded">email_sent=0</code> -- submissions that never even became a Resend email at all, e.g. during a Resend outage or bad API key).
+        Requires its own <code class="bg-stone-100 px-1 rounded">RESEND_API_KEY</code> secret on <em>this</em> Worker (separate from the public site's own key of the same name -- Resend supports multiple keys per account; using a distinct one here means this dashboard only ever needs read access, never send capability).
+      </p>
 
       <h3 class="font-semibold text-stone-800 mb-2">Auth &amp; security design</h3>
       <p class="text-stone-600 leading-relaxed mb-3">
@@ -440,9 +501,9 @@
         Visiting the admin domain's <code class="bg-stone-100 px-1 rounded">/welcome</code> path shows a
         branded, dark-theme landing page before Cloudflare Access's own hosted Email-OTP login screen.
         Once authenticated, the admin lands on a two-pane shell: a left <strong>Sidebar</strong> (brand
-        mark, Gallery / Analytics / Quick Links navigation, light/dark theme toggle persisted per
-        browser) and a main content pane. A top-right <strong>Profile menu</strong> shows the signed-in
-        email (from Cloudflare Access) and a real sign-out link.
+        mark, Gallery / Contact Messages / Analytics / Site Audit / Quick Links navigation, light/dark
+        theme toggle persisted per browser) and a main content pane. A top-right <strong>Profile menu</strong>
+        shows the signed-in email (from Cloudflare Access) and a real sign-out link.
       </p>
 
       <h3 class="font-semibold text-stone-800 mb-1">Gallery page (default view)</h3>
@@ -452,6 +513,14 @@
         <li><strong>Add Photo</strong> opens a modal supporting multi-file upload with a category picker, per-file caption/alt text (with quick-fill to copy one caption/alt-text across a whole batch), and an image preview; the modal closes immediately and upload progress continues in a persistent bottom panel, with the grid refreshing photo-by-photo as each upload settles</li>
         <li>Each photo card supports inline <strong>Edit</strong> (caption/alt/category/order/published) and <strong>Delete</strong>, plus a selection checkbox</li>
         <li><strong>Bulk action bar</strong> appears once 1+ photos are selected: bulk edit (shared category/published-state change) or bulk delete with a confirmation prompt</li>
+      </ul>
+
+      <h3 class="font-semibold text-stone-800 mb-1">Contact Messages page (added 2026-11-07)</h3>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li><strong>Email Delivery card</strong> at the top: sent-today / sent-this-month / all-time-sent / never-reached-Resend KPI tiles, a 14-day sparkline, and a chip row of counts by Resend's own delivery status (sent/delivered/bounced/complained/...) -- all sourced live from Resend's API, see the Technical Design section above</li>
+        <li><strong>All / New / Read / Replied</strong> tabs with live count badges, same tab pattern as Gallery's Published/Drafts</li>
+        <li>Each submission renders as a card: name (mailto link), email, phone, address, the full message, a colored status badge, and a created-at timestamp. A status dropdown lets an admin move it through new &rarr; read &rarr; replied; a delete button removes spam/duplicates</li>
+        <li>An <strong>"Notification unconfirmed"</strong> badge appears on any submission whose notification email never confirmed as sent -- the one place an admin can actually see a submission the old email-only flow would have silently dropped</li>
       </ul>
 
       <h3 class="font-semibold text-stone-800 mb-1">GA4 page</h3>
@@ -645,8 +714,8 @@ const phase1Items = [
     id: "gallery-astro-d1-fetch",
     title: "Update the public site's Gallery.astro to fetch admin-uploaded photos at build time, on both dev and production",
     path: "kriyayogamission repo: src/components/Gallery.astro",
-    detail: "Cross-repo change -- done, with explicit sign-off, on the kriyayogamission repo's dev branch: Gallery.astro's frontmatter fetches the admin Worker's unauthenticated /api/public/gallery feed during astro build (guarded entirely by the ADMIN_GALLERY_API_URL Build variable) and merges the results into the static IMAGES array, keeping the exact same generated HTML structure/categories/lightbox behavior. As of 2026-11-06 this variable is set as a Build variable on both the kriyayogamission-dev and production kriyayogamission Cloudflare projects, making the fetch logic itself environment-agnostic -- see the 'deploy-hook-wiring' item above for the other half (actually triggering a production build).",
-    done: true
+    detail: "CORRECTION 2026-11-07: this item was previously marked done, claiming Gallery.astro's frontmatter fetches /api/public/gallery during astro build. That turned out to be inaccurate -- double-checked while working on the contact-form-log item below, and a grep of the live kriyayogamission repo's src/ turns up zero references to the admin API or ADMIN_GALLERY_API_URL anywhere. Gallery.astro is still on its original hardcoded IMAGES array; the admin-uploaded photos backend (/api/public/gallery, R2, D1) is real and working, it just isn't actually consumed by the public site yet. Reopened as not-done -- flagging honestly rather than leaving the stale claim in place. Still requires the same explicit sign-off as before once someone picks this back up, per the STRICT RESTRICTION banner above.",
+    done: false
   },
   {
     id: "e2e-test-dev",
@@ -685,7 +754,7 @@ const decisionItems = [
     id: "shared-d1-r2-vs-public-api",
     title: "Should the public site's build read D1/R2 directly, or should the admin Worker expose its own small public read-only API instead?",
     path: "Architecture boundary between the two repos",
-    detail: "RESOLVED, built: the admin Worker exposes an unauthenticated GET /api/public/gallery feed (published rows only) -- the public site's build never needs D1 credentials of its own. Still outstanding: actually wiring Gallery.astro to call it (see Phase 1 checklist).",
+    detail: "RESOLVED, built: the admin Worker exposes an unauthenticated GET /api/public/gallery feed (published rows only) -- the public site's build never needs D1 credentials of its own. Still outstanding: actually wiring Gallery.astro to call it (see Phase 1 checklist). CORRECTION 2026-11-07: double-checked while working on the contact-form-log item below -- a grep of the live kriyayogamission repo's src/ turns up zero references to the admin API anywhere, so despite earlier notes in this doc describing this as done, Gallery.astro is still on its original hardcoded IMAGES array. Flagging honestly rather than leaving a stale claim in place; not fixed as part of this pass since it was out of scope for what was asked.",
     done: true
   }
 ];
@@ -707,8 +776,9 @@ const phase2Items = [
   {
     id: "contact-form-log",
     title: "Persist contact form submissions to D1 (currently email-only, no record)",
-    path: "Admin Worker: new D1 table + /api/contact-submissions routes; public site's existing /api/contact Worker route",
-    detail: "The public site's /api/contact route (worker.js) only sends an email via Resend today -- if that email bounces, lands in spam, or Resend has an outage, the inquiry is lost with zero record anywhere. Storing every submission in D1 (sender, message, timestamp, read/replied status) and surfacing it in the admin panel closes a real, currently invisible gap -- arguably the single highest-value item in this whole list. Same CRUD pattern already proven by Gallery."
+    path: "Admin Worker: new D1 table + /api/contact-messages + /api/public/contact-messages routes; public site's existing /api/contact Worker route",
+    detail: "SHIPPED 2026-11-07: contact_messages D1 table, full admin CRUD (list/filter-by-status/mark read-replied/delete), and a Contact Messages sidebar page with per-status tabs. Also went further than originally scoped: an email-send metrics card (sent today/this month/all-time + a 14-day sparkline + per-delivery-status counts), sourced live from Resend's own GET /emails API, not re-derived from our own rows -- see 'Email metrics' in the Technical Design section above. The public site's worker.js change persists every submission BEFORE calling Resend (not after), specifically so a Resend outage/bounce/bad-key can never again cause total data loss -- verified locally end-to-end with both Workers running side by side. Still outstanding, all manual/one-time: (1) run migrations/0004 against the REMOTE D1 database (`wrangler d1 execute kriyayogamission-admin-db --remote --file=migrations/0004_create_contact_messages.sql`); (2) `wrangler secret put RESEND_API_KEY` and `wrangler secret put CONTACT_INGEST_TOKEN` on this (admin) Worker; (3) set CONTACT_INGEST_TOKEN (same value) as a secret AND ADMIN_CONTACT_API_URL as a plain var on the PUBLIC SITE's Worker -- this is the one step that touches the restricted project's config, flagged for explicit human sign-off per the STRICT RESTRICTION banner above, not done automatically; (4) add a Cloudflare Access bypass rule for /api/public/contact-messages, same mechanism already used for /images/* and /api/public/gallery. Until (2)-(4) are done, both sides degrade safely -- this Worker returns a clear 503, and the public site's contact form behaves exactly as it did before this change.",
+    done: true
   },
   {
     id: "faq-manager",

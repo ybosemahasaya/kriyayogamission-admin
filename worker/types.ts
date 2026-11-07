@@ -1,5 +1,6 @@
 import type { GalleryCategory } from "../shared/gallery-categories";
 import type { GalleryImageDTO } from "../shared/gallery-image";
+import type { ContactMessageDTO, ContactMessageStatus } from "../shared/contact-messages";
 
 export type { GalleryImageDTO };
 
@@ -57,6 +58,26 @@ export interface Env {
    * worker/lib/google-auth.ts resolveGoogleCredentials(). Not sensitive,
    * same reasoning as GA4_PROPERTY_ID. */
   GSC_SITE_URL?: string;
+  /** Resend API key, for GET /emails (email-metrics.ts). This is a
+   * SEPARATE secret from the public site's own RESEND_API_KEY -- the
+   * admin Worker never sends email, it only reads send history, but
+   * Resend scopes API keys per-account (not per-capability), so reading
+   * requires a key same as sending would. Set via `wrangler secret put`
+   * on THIS project; never copy the public site's key verbatim if you'd
+   * rather keep read and send capabilities on separate keys (Resend
+   * supports creating multiple keys on one account for exactly this). */
+  RESEND_API_KEY?: string;
+  /** Shared secret the public site's worker.js sends as `Authorization:
+   * Bearer <token>` when POSTing to /api/public/contact-messages. Without
+   * this, anyone who finds that URL could write fake contact messages
+   * straight into D1. Mirrors the "URL itself is the credential"
+   * simplicity of worker/lib/deploy-hook.ts, just as a header instead of
+   * a secret path, since this endpoint's path is otherwise guessable.
+   * Must be set to the SAME value via `wrangler secret put
+   * CONTACT_INGEST_TOKEN` on both this Worker and the public site's
+   * Worker -- the latter requires explicit human sign-off per the
+   * STRICT RESTRICTION banner, see docs/admin-panel-architecture.html. */
+  CONTACT_INGEST_TOKEN?: string;
 }
 
 export interface GalleryImageRow {
@@ -82,5 +103,34 @@ export function rowToDTO(row: GalleryImageRow): GalleryImageDTO {
     published: row.published === 1,
     createdAt: row.created_at,
     uploadedBy: row.uploaded_by,
+  };
+}
+
+export interface ContactMessageRow {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  message: string;
+  status: ContactMessageStatus;
+  email_sent: number; // D1/SQLite has no boolean type -- 0 or 1
+  resend_message_id: string | null;
+  source_ip: string | null;
+  created_at: string;
+}
+
+export function contactMessageRowToDTO(row: ContactMessageRow): ContactMessageDTO {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    address: row.address,
+    message: row.message,
+    status: row.status,
+    emailSent: row.email_sent === 1,
+    resendMessageId: row.resend_message_id,
+    createdAt: row.created_at,
   };
 }

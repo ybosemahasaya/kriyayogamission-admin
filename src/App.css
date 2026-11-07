@@ -1596,7 +1596,54 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.contact-message-chevron {
+  flex-shrink: 0;
+  display: inline-block;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  margin-top: 0.15rem;
+}
+
+.contact-message-chevron-open {
+  transform: rotate(90deg);
+}
+
+.contact-message-email-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.contact-message-preview {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 28ch;
+}
+
+.contact-message-card-body {
+  margin-top: 0.75rem;
+  padding-left: 1.4rem;
+}
+
+.contact-message-card-email-link {
+  margin-bottom: 0.4rem;
+}
+
+.contact-message-card-email-link a {
+  color: var(--accent);
 }
 
 .contact-message-card-identity {
@@ -1699,12 +1746,61 @@
   gap: 0.6rem;
 }
 
+.contact-directory-table-wrap {
+  overflow-x: auto;
+}
+
+.contact-directory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.contact-directory-table th,
+.contact-directory-table td {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.contact-directory-table th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .contact-daily-sparkline {
   display: flex;
   align-items: flex-end;
   gap: 0.25rem;
   height: 60px;
   margin: 1rem 0 0.5rem;
+}
+
+.contact-daily-limit-caption {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.contact-daily-limit-warning .contact-daily-limit-caption {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.contact-daily-limit-warning {
+  border-color: var(--warning);
+}
+
+.contact-daily-limit-danger .contact-daily-limit-caption {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.contact-daily-limit-danger {
+  border-color: #dc2626;
 }
 
 .contact-daily-sparkline-bar {

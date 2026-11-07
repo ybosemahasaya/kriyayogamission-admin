@@ -42,6 +42,21 @@ export interface ContactMessageBackfillResult {
   imported: number;
   alreadyPresent: number;
   skipped: number;
+  /** Total emails Resend returned for this account, regardless of
+   * subject -- lets an admin sanity-check "Resend shows N sent, why did
+   * fewer import" without needing to go dig through the Resend
+   * dashboard themselves. */
+  totalEmailsInResendAccount: number;
+  /** How many of those were excluded before parsing even started,
+   * because their subject didn't match CONTACT_NOTIFICATION_SUBJECT --
+   * e.g. other transactional emails ever sent from the same Resend
+   * account, or a contact-form notification sent under an older/
+   * different subject line. */
+  excludedBySubject: number;
+  /** Up to 10 distinct non-matching subjects actually seen, so a mismatch
+   * (e.g. a subject that changed slightly at some point) is visible
+   * without needing direct Resend dashboard access. */
+  nonMatchingSubjectSamples: string[];
 }
 
 /** Counts by status, always present (0 if none), so the admin UI can

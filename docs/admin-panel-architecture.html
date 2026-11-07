@@ -386,6 +386,7 @@
             <tr><td class="px-3 py-2 font-mono text-xs">/api/contact-messages</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">List submissions (optional <code class="bg-stone-100 px-1 rounded">?status=</code> filter) + status counts</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/api/contact-messages/:id</td><td class="px-3 py-2">PATCH / DELETE</td><td class="px-3 py-2 text-stone-500">Update status (new/read/replied) or delete a submission</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/api/contact-messages/backfill-from-resend</td><td class="px-3 py-2">POST</td><td class="px-3 py-2 text-stone-500">Idempotent one-time recovery of pre-feature submissions from Resend's send history; see "Historical backfill" above</td></tr>
+            <tr><td class="px-3 py-2 font-mono text-xs">/api/contacts</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">Deduplicated Name/Email/Phone/Address directory, computed from contact_messages; see "Contacts directory tab" above</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/api/public/contact-messages</td><td class="px-3 py-2">POST</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated-by-Access, bearer-token-guarded</strong> -- the public site's worker.js calls this to persist a submission; see "Cross-repo contact ingest" below</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/api/public/contact-messages/:id</td><td class="px-3 py-2">PATCH</td><td class="px-3 py-2 text-stone-500"><strong>Unauthenticated-by-Access, bearer-token-guarded</strong> -- best-effort backfill of email_sent/resend_message_id after the public site's Resend call completes</td></tr>
             <tr><td class="px-3 py-2 font-mono text-xs">/api/email-metrics</td><td class="px-3 py-2">GET</td><td class="px-3 py-2 text-stone-500">Email-send KPIs sourced live from Resend's own <code class="bg-stone-100 px-1 rounded">GET /emails</code> API -- see "Email metrics" below</td></tr>
@@ -449,6 +450,77 @@
         "Imported from Resend" badge in the UI so admins know these are reconstructed, not originally
         captured with full fidelity. Capped at 300 new imports per run (<code class="bg-stone-100 px-1 rounded">MAX_BACKFILL_PER_RUN</code>) to bound Resend API usage and Worker execution time per click -- safe to click the button again for a second pass if ever exceeded.
       </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Self-diagnosing result (added 2026-11-07):</strong> the response also
+        reports <code class="bg-stone-100 px-1 rounded">totalEmailsInResendAccount</code>,
+        <code class="bg-stone-100 px-1 rounded">excludedBySubject</code>, and up to 10
+        <code class="bg-stone-100 px-1 rounded">nonMatchingSubjectSamples</code> -- added after a real
+        mismatch (Resend's own dashboard showed 9 sent emails, the admin panel only showed 6) needed
+        investigating without direct Resend dashboard access. Rather than guessing, the admin can now see
+        exactly how many of Resend's emails were excluded purely because their subject line didn't match,
+        and what those subjects actually were -- e.g. test emails, a changed subject line from an older
+        worker.js version, or genuinely unrelated sends from the same account.
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Contact Messages UX: collapsed-by-default cards (added 2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        With potentially years of backfilled history in one list, rendering every full message body at once
+        made the page an unscannable wall of text. Each <code class="bg-stone-100 px-1 rounded">ContactMessageCard</code>
+        now starts collapsed -- showing only name, a truncated email, status/backfilled/unconfirmed badges,
+        the date, and a single-line message preview -- and expands in place on click to reveal the full
+        address, full message body, and the status/delete actions. This is local component state per card
+        (a plain <code class="bg-stone-100 px-1 rounded">useState</code>, not lifted to the page), so
+        expanding one card never affects any other card or triggers a re-fetch. Applies uniformly across
+        the All/New/Read/Replied tabs since they all render the same card component.
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Contacts directory tab (added 2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        A fifth tab, <strong>Contacts</strong>, alongside All/New/Read/Replied -- a deduplicated "who has
+        contacted us" view: Name, Email, Phone, Address, message count, and first/last-contacted dates.
+        Deliberately excludes message content entirely, per explicit request -- this is a contact
+        directory for outreach/mailing-list purposes, not a message archive.
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        Computed entirely from <code class="bg-stone-100 px-1 rounded">contact_messages</code> at request
+        time (<code class="bg-stone-100 px-1 rounded">GET /api/contacts</code>, see
+        <code class="bg-stone-100 px-1 rounded">worker/api/contacts.ts</code>) -- there is no separate table
+        and no write path to keep in sync, so this view can never drift from the underlying messages. SQLite's
+        <code class="bg-stone-100 px-1 rounded">ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC)</code>
+        window function picks each email's single most recent row for name/phone/address (a plain
+        <code class="bg-stone-100 px-1 rounded">MAX()</code> would only give the max of each column
+        independently, not "all three columns from the same latest submission"), joined against a separate
+        aggregate for message count and first/last-contacted timestamps. If the same person has submitted
+        more than once with different details, their most recent submission's name/phone/address wins --
+        the same behavior you'd want from an up-to-date mailing list. Verified locally: two submissions
+        under the same email correctly collapsed into one directory row with the latest details and a
+        message count of 2.
+      </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2">Resend daily send limit tracking (added 2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        Resend's free tier caps outbound sends at 100/day. The existing "Sent Today" KPI on the Email
+        Delivery card (already sourced live from Resend, see "Email metrics" above) now visually tracks
+        this: a caption always shows <code class="bg-stone-100 px-1 rounded">X / 100 daily limit</code>,
+        the card's border and caption turn amber at 80% (<code class="bg-stone-100 px-1 rounded">RESEND_FREE_PLAN_DAILY_LIMIT</code>
+        and <code class="bg-stone-100 px-1 rounded">WARNING_THRESHOLD_RATIO</code> in
+        <code class="bg-stone-100 px-1 rounded">EmailMetricsCard.tsx</code>), and red once the limit is
+        reached. This is a hardcoded constant, not read from Resend's API -- there is no endpoint that
+        reports an account's actual plan limit, so it needs updating by hand if the account ever moves to a
+        paid plan with a different (or no) cap.
+      </p>
+      <p class="text-stone-600 leading-relaxed mb-3">
+        <strong class="text-stone-800">Recommendations for handling the limit if/when it's actually crossed</strong>
+        (deliberately not implemented -- these are organizational/plan decisions, not something to silently
+        automate into the codebase):
+      </p>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li><strong>Upgrade the Resend plan</strong> if the 100/day cap is being hit organically from legitimate contact-form traffic -- the simplest fix, and the right one if the mission's actual inquiry volume has genuinely grown past the free tier.</li>
+        <li><strong>Separate transactional traffic from the contact form, if other email types share this Resend account</strong> -- e.g. a future newsletter or donation-receipt feature should probably use its own Resend API key/domain so a spike in one doesn't starve the contact form's quota.</li>
+        <li><strong>Queue instead of drop on rejection</strong> -- since every submission is already persisted to D1 BEFORE the Resend call (this is the whole point of migration 0004), a 429/limit-exceeded response from Resend never loses the inquiry itself, only delays its notification email. A small follow-up could retry queued "email_sent=0" rows the next day once the quota resets, rather than requiring a manual re-check.</li>
+        <li><strong>Alert rather than silently degrade</strong> -- e.g. a scheduled Worker (Cron Trigger) that checks <code class="bg-stone-100 px-1 rounded">sentToday</code> once daily and sends a one-off warning (via a channel other than Resend itself, to avoid a circular dependency) if it's approaching 100, so the organization isn't surprised by a reset-at-midnight gap.</li>
+        <li><strong>Treat it as a soft problem, not a hard outage</strong> -- the Contact Messages page itself has zero dependency on Resend's quota (D1 persistence happens regardless), so even a fully exhausted daily quota only delays the admin's awareness by however long it takes someone to check the Contact Messages page directly instead of waiting on an email notification.</li>
+      </ul>
 
       <h3 class="font-semibold text-stone-800 mb-2">Auth &amp; security design</h3>
       <p class="text-stone-600 leading-relaxed mb-3">
@@ -546,7 +618,10 @@
         <li><strong>All / New / Read / Replied</strong> tabs with live count badges, same tab pattern as Gallery's Published/Drafts</li>
         <li>Each submission renders as a card: name (mailto link), email, phone, address, the full message, a colored status badge, and a created-at timestamp. A status dropdown lets an admin move it through new &rarr; read &rarr; replied; a delete button removes spam/duplicates</li>
         <li>An <strong>"Notification unconfirmed"</strong> badge appears on any submission whose notification email never confirmed as sent -- the one place an admin can actually see a submission the old email-only flow would have silently dropped</li>
-        <li>An <strong>"Import historical messages from Resend"</strong> button recovers pre-feature submissions from Resend's send history (see "Historical backfill" in the Technical Design section); safe to click more than once. Recovered cards show an <strong>"Imported from Resend"</strong> badge so admins know those specific rows are reconstructed rather than originally captured.</li>
+        <li>An <strong>"Import historical messages from Resend"</strong> button recovers pre-feature submissions from Resend's send history (see "Historical backfill" in the Technical Design section); safe to click more than once. Recovered cards show an <strong>"Imported from Resend"</strong> badge so admins know those specific rows are reconstructed rather than originally captured. The result summary also reports total Resend emails found, how many were excluded by subject, and sample non-matching subjects -- self-diagnosing if the imported count looks lower than expected.</li>
+        <li>Every message card is <strong>collapsed by default</strong>, showing just name/email/badges/date and a one-line preview; clicking a card expands it in place to show the full address, full message, and status/delete actions. Applies on all four tabs (All/New/Read/Replied).</li>
+        <li>A fifth <strong>Contacts</strong> tab shows a deduplicated Name/Email/Phone/Address directory (plus message count and first/last-contacted dates) with no message content -- a contact list for outreach purposes, distinct from the message log itself.</li>
+        <li>The Email Delivery card's "Sent Today" KPI now visually tracks Resend's 100/day free-tier cap -- a quiet caption normally, turning amber then red as the day's count approaches and reaches the limit.</li>
       </ul>
 
       <h3 class="font-semibold text-stone-800 mb-1">GA4 page</h3>

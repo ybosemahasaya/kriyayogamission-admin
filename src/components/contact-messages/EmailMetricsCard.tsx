@@ -1,6 +1,13 @@
 import type { EmailMetricsDTO } from "../../../shared/email-metrics";
 import { formatNumber } from "../../lib/format";
 
+// Resend's free-tier cap. Update this if/when the account moves to a
+// paid plan with a different (or no) daily ceiling -- there is no API
+// to read the account's actual plan limit, so this has to be a constant
+// kept in sync by hand.
+const RESEND_FREE_PLAN_DAILY_LIMIT = 100;
+const WARNING_THRESHOLD_RATIO = 0.8;
+
 /** Email-send KPIs sourced directly from Resend's own API (see
  * worker/api/email-metrics.ts) -- "how many emails have we actually
  * sent", not just "how many contact messages did we receive". The two
@@ -8,6 +15,14 @@ import { formatNumber } from "../../lib/format";
  * that gap, surfaced explicitly rather than papered over. */
 export function EmailMetricsCard({ metrics }: { metrics: EmailMetricsDTO }) {
   const maxDailyCount = Math.max(1, ...metrics.dailyBreakdown.map((d) => d.count));
+
+  const atLimit = metrics.sentToday >= RESEND_FREE_PLAN_DAILY_LIMIT;
+  const nearLimit = !atLimit && metrics.sentToday >= RESEND_FREE_PLAN_DAILY_LIMIT * WARNING_THRESHOLD_RATIO;
+  const limitCardClass = atLimit
+    ? "analytics-kpi-card contact-daily-limit-danger"
+    : nearLimit
+      ? "analytics-kpi-card contact-daily-limit-warning"
+      : "analytics-kpi-card";
 
   return (
     <div className="analytics-chart-card">
@@ -21,9 +36,13 @@ export function EmailMetricsCard({ metrics }: { metrics: EmailMetricsDTO }) {
       </h3>
 
       <div className="analytics-kpi-grid">
-        <div className="analytics-kpi-card">
+        <div className={limitCardClass}>
           <span className="analytics-kpi-label">Sent Today</span>
           <span className="analytics-kpi-value">{formatNumber(metrics.sentToday)}</span>
+          <span className="contact-daily-limit-caption">
+            {metrics.sentToday} / {RESEND_FREE_PLAN_DAILY_LIMIT} daily limit
+            {atLimit ? " -- limit reached" : nearLimit ? " -- approaching limit" : ""}
+          </span>
         </div>
         <div className="analytics-kpi-card">
           <span className="analytics-kpi-label">Sent This Month</span>

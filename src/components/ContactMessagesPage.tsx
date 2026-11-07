@@ -6,13 +6,16 @@ import {
   listContactMessages,
   updateContactMessageStatus,
 } from "../api/contact-messages";
+import { listContactDirectory } from "../api/contacts";
 import type { ContactMessageDTO, ContactMessageStatus, ContactMessageStatusCounts } from "../../shared/contact-messages";
+import type { ContactDirectoryEntry } from "../../shared/contacts";
 import type { EmailMetricsDTO } from "../../shared/email-metrics";
+import { ContactDirectoryTable } from "./contact-messages/ContactDirectoryTable";
 import { ContactMessageCard } from "./contact-messages/ContactMessageCard";
 import { EmailMetricsCard } from "./contact-messages/EmailMetricsCard";
 import { STATUS_LABELS, STATUS_ORDER } from "./contact-messages/status-labels";
 
-type TabFilter = ContactMessageStatus | "all";
+type TabFilter = ContactMessageStatus | "all" | "contacts";
 
 const EMPTY_COUNTS: ContactMessageStatusCounts = { new: 0, read: 0, replied: 0 };
 
@@ -35,7 +38,12 @@ export function ContactMessagesPage() {
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
 
+  const [contacts, setContacts] = useState<ContactDirectoryEntry[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState<string | null>(null);
+
   const refresh = useCallback(() => {
+    if (tab === "contacts") return; // handled by the contacts effect below
     setLoading(true);
     setError(null);
     listContactMessages(tab)
@@ -50,6 +58,17 @@ export function ContactMessagesPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Contacts tab is a totally different query (deduplicated by email, no
+  // status/message data) -- loaded once on mount, same as email metrics,
+  // so the tab's own count badge is accurate even before it's clicked.
+  useEffect(() => {
+    setContactsLoading(true);
+    listContactDirectory()
+      .then((res) => setContacts(res.contacts))
+      .catch((err) => setContactsError(err instanceof Error ? err.message : "Failed to load contacts."))
+      .finally(() => setContactsLoading(false));
+  }, []);
 
   // Independent of the message list/tab selection -- Resend's send
   // history doesn't change based on which status tab is active.
@@ -91,10 +110,15 @@ export function ContactMessagesPage() {
     setBackfillMessage(null);
     try {
       const result = await backfillContactMessagesFromResend();
-      setBackfillMessage(
+      let message =
         `Imported ${result.imported} new message${result.imported === 1 ? "" : "s"}` +
-          ` (${result.alreadyPresent} already present, ${result.skipped} skipped).`,
-      );
+        ` (${result.alreadyPresent} already present, ${result.skipped} skipped).` +
+        ` Resend has ${result.totalEmailsInResendAccount} emails total` +
+        ` (${result.excludedBySubject} didn't match the contact-form subject).`;
+      if (result.nonMatchingSubjectSamples.length > 0) {
+        message += ` Non-matching subjects seen: ${result.nonMatchingSubjectSamples.join("; ")}`;
+      }
+      setBackfillMessage(message);
       refresh();
     } catch (err) {
       setBackfillMessage(err instanceof Error ? err.message : "Backfill failed.");
@@ -131,27 +155,44 @@ export function ContactMessagesPage() {
             {STATUS_LABELS[status]} <span className="tab-count">{counts[status]}</span>
           </button>
         ))}
+        <button
+          type="button"
+          className={tab === "contacts" ? "tab active" : "tab"}
+          onClick={() => setTab("contacts")}
+        >
+          Contacts <span className="tab-count">{contacts.length}</span>
+        </button>
       </div>
 
-      {loading && <p className="empty-state">Loading...</p>}
-      {error && <p className="form-error">{error}</p>}
-      {!loading && !error && messages.length === 0 && (
-        <p className="empty-state">
-          No contact messages{tab !== "all" ? ` with status "${STATUS_LABELS[tab as ContactMessageStatus]}"` : ""} yet.
-        </p>
-      )}
+      {tab === "contacts" ? (
+        <>
+          {contactsLoading && <p className="empty-state">Loading...</p>}
+          {contactsError && <p className="form-error">{contactsError}</p>}
+          {!contactsLoading && !contactsError && <ContactDirectoryTable contacts={contacts} />}
+        </>
+      ) : (
+        <>
+          {loading && <p className="empty-state">Loading...</p>}
+          {error && <p className="form-error">{error}</p>}
+          {!loading && !error && messages.length === 0 && (
+            <p className="empty-state">
+              No contact messages{tab !== "all" ? ` with status "${STATUS_LABELS[tab as ContactMessageStatus]}"` : ""} yet.
+            </p>
+          )}
 
-      {!loading && !error && messages.length > 0 && (
-        <div className="contact-messages-list">
-          {messages.map((message) => (
-            <ContactMessageCard
-              key={message.id}
-              message={message}
-              onStatusChange={handleStatusChange}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+          {!loading && !error && messages.length > 0 && (
+            <div className="contact-messages-list">
+              {messages.map((message) => (
+                <ContactMessageCard
+                  key={message.id}
+                  message={message}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

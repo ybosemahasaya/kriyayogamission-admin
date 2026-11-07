@@ -1,5 +1,6 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
+import { handleContactsRequest } from "./api/contacts";
 import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
@@ -158,6 +159,17 @@ export default {
         return await handleEmailMetricsRequest(env);
       } catch (err) {
         console.error("Email metrics API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Deduplicated "who has contacted us" directory -- see shared/contacts.ts.
+    if (url.pathname === "/api/contacts" && request.method === "GET") {
+      try {
+        return await handleContactsRequest(env);
+      } catch (err) {
+        console.error("Contacts directory API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

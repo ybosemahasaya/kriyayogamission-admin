@@ -144,6 +144,8 @@ export async function handleContactMessagesBackfillRequest(env: Env): Promise<Re
   }
 
   const candidates = emails.filter((e) => e.subject === CONTACT_NOTIFICATION_SUBJECT);
+  const nonMatching = emails.filter((e) => e.subject !== CONTACT_NOTIFICATION_SUBJECT);
+  const nonMatchingSubjectSamples = [...new Set(nonMatching.map((e) => e.subject))].slice(0, 10);
 
   const { results: existingRows } = await env.DB!.prepare(
     "SELECT resend_message_id FROM contact_messages WHERE resend_message_id IS NOT NULL",
@@ -194,6 +196,13 @@ export async function handleContactMessagesBackfillRequest(env: Env): Promise<Re
     imported++;
   }
 
-  const result: ContactMessageBackfillResult = { imported, alreadyPresent, skipped };
+  const result: ContactMessageBackfillResult = {
+    imported,
+    alreadyPresent,
+    skipped,
+    totalEmailsInResendAccount: emails.length,
+    excludedBySubject: nonMatching.length,
+    nonMatchingSubjectSamples,
+  };
   return json(result);
 }

@@ -76,6 +76,24 @@ data source from both GA4 and Workers Analytics Engine.
    message until both of these are set, same pattern as every other
    optional integration in this project.
 
+#### Adding Cache Purge + SSL certificate status (same token, more permissions)
+
+Both widgets live on the Edge Analytics page and reuse the exact same
+`CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_API_TOKEN` pair above -- no new secret
+needed. Go back to that same token in the Cloudflare dashboard (API
+Tokens -> `admin-panel-edge-analytics` -> Edit) and add two more
+permissions to the existing **Zone** policy row (same zone resource,
+`kriyayogamission.org` -- don't widen it):
+
+- **Zone > SSL and Certificates > Read** (for the certificate status
+  widget)
+- **Zone > Cache Purge > Purge** (the one write permission in this
+  feature -- it can only purge cache, nothing else)
+
+Save. Editing a token's permissions doesn't change its secret value, so
+the `CLOUDFLARE_API_TOKEN` you already set stays valid -- no need to run
+`wrangler secret put` again.
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

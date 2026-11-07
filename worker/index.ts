@@ -1,4 +1,5 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
+import { handleCachePurgeRequest, handleSslStatusRequest } from "./api/cf-ops";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
@@ -82,6 +83,29 @@ export default {
         return await handleEdgeAnalyticsRequest(request, env);
       } catch (err) {
         console.error("Edge analytics API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Cloudflare zone "operations" widgets on the Edge Analytics page --
+    // see worker/api/cf-ops.ts. Read-only SSL status + the one narrow
+    // write action (purge cache), nothing else.
+    if (url.pathname === "/api/cf-ops/ssl-status" && request.method === "GET") {
+      try {
+        return await handleSslStatusRequest(env);
+      } catch (err) {
+        console.error("SSL status API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    if (url.pathname === "/api/cf-ops/cache-purge" && request.method === "POST") {
+      try {
+        return await handleCachePurgeRequest(request, env);
+      } catch (err) {
+        console.error("Cache purge API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

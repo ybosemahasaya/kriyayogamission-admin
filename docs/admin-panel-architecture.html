@@ -462,17 +462,25 @@
         worker.js version, or genuinely unrelated sends from the same account.
       </p>
 
-      <h3 class="font-semibold text-stone-800 mb-2">Contact Messages UX: collapsed-by-default cards (added 2026-11-07)</h3>
+      <h3 class="font-semibold text-stone-800 mb-2">Contact Messages UX: mail-client master/detail layout (added 2026-11-07, revised same day)</h3>
       <p class="text-stone-600 leading-relaxed mb-3">
-        With potentially years of backfilled history in one list, rendering every full message body at once
-        made the page an unscannable wall of text. Each <code class="bg-stone-100 px-1 rounded">ContactMessageCard</code>
-        now starts collapsed -- showing only name, a truncated email, status/backfilled/unconfirmed badges,
-        the date, and a single-line message preview -- and expands in place on click to reveal the full
-        address, full message body, and the status/delete actions. This is local component state per card
-        (a plain <code class="bg-stone-100 px-1 rounded">useState</code>, not lifted to the page), so
-        expanding one card never affects any other card or triggers a re-fetch. Applies uniformly across
-        the All/New/Read/Replied tabs since they all render the same card component.
+        Originally shipped as a single column of collapsed-by-default expandable cards, then redesigned
+        same-day to match a requested reference UI (an email-client-style two-pane split) now that
+        potentially years of backfilled history can live in one list. The All/New/Read/Replied tabs now
+        render a <code class="bg-stone-100 px-1 rounded">contact-mail-layout</code> grid: a narrow scrolling
+        list pane on the left (<code class="bg-stone-100 px-1 rounded">ContactMessageListItem.tsx</code> --
+        avatar, name, a colored status dot, a one-line message preview, and a relative/short timestamp) and
+        a reading pane on the right (<code class="bg-stone-100 px-1 rounded">ContactMessageDetailPane.tsx</code>
+        -- full identity block, status/backfilled/unconfirmed badges, full address and message body, and the
+        status-change/delete actions). Selection is a single <code class="bg-stone-100 px-1 rounded">selectedId</code>
+        string in <code class="bg-stone-100 px-1 rounded">ContactMessagesPage.tsx</code>, not per-item state.
       </p>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-3">
+        <li>The list is bucketed into <strong>Today / Yesterday / Earlier</strong> sections (<code class="bg-stone-100 px-1 rounded">group-by-recency.ts</code>), a single pass over the already-sorted-DESC API response -- no re-sorting needed.</li>
+        <li>Avatars are deterministic, not random: <code class="bg-stone-100 px-1 rounded">avatar-utils.ts</code> derives initials from the name and a color from a hash of the email, so the same contact always looks the same across sessions without storing anything extra.</li>
+        <li>On refresh (after a status change, delete, or tab switch), the current selection is preserved if it still exists in the refreshed list; otherwise the first message in the list becomes selected -- the reading pane is never left pointing at a message that just vanished from view, and a message is always open by default rather than showing an empty pane on first load.</li>
+        <li>Below 900px width, the grid collapses to a single column and a <code class="bg-stone-100 px-1 rounded">contact-mail-has-selection</code> modifier class toggles which pane is visible -- list by default, full-width reading pane once a message is selected, back button (always visible, not just on mobile) returns by clearing the selection.</li>
+      </ul>
 
       <h3 class="font-semibold text-stone-800 mb-2">Contacts directory tab (added 2026-11-07)</h3>
       <p class="text-stone-600 leading-relaxed mb-3">
@@ -638,7 +646,7 @@
         <li>Each submission renders as a card: name (mailto link), email, phone, address, the full message, a colored status badge, and a created-at timestamp. A status dropdown lets an admin move it through new &rarr; read &rarr; replied; a delete button removes spam/duplicates</li>
         <li>An <strong>"Notification unconfirmed"</strong> badge appears on any submission whose notification email never confirmed as sent -- the one place an admin can actually see a submission the old email-only flow would have silently dropped</li>
         <li>An <strong>"Import historical messages from Resend"</strong> button recovers pre-feature submissions from Resend's send history (see "Historical backfill" in the Technical Design section); safe to click more than once. Recovered cards show an <strong>"Imported from Resend"</strong> badge so admins know those specific rows are reconstructed rather than originally captured. The result summary also reports total Resend emails found, how many were excluded by subject, and sample non-matching subjects -- self-diagnosing if the imported count looks lower than expected.</li>
-        <li>Every message card is <strong>collapsed by default</strong>, showing just name/email/badges/date and a one-line preview; clicking a card expands it in place to show the full address, full message, and status/delete actions. Applies on all four tabs (All/New/Read/Replied).</li>
+        <li>The All/New/Read/Replied tabs show a <strong>mail-client-style split view</strong>: a compact list on the left (avatar, name, status dot, one-line preview, Today/Yesterday/Earlier grouping) and a full reading pane on the right showing the selected message's full address, body, badges, and status/delete actions. Below 900px width this collapses to a single pane with a back button.</li>
         <li>A fifth <strong>Contacts</strong> tab shows a deduplicated Name/Email/Phone/Address directory (plus message count and first/last-contacted dates) with no message content -- a contact list for outreach purposes, distinct from the message log itself.</li>
         <li>The Email Delivery card's "Sent Today" KPI now visually tracks Resend's 100/day free-tier cap -- a quiet caption normally, turning amber then red as the day's count approaches and reaches the limit.</li>
       </ul>

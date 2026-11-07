@@ -11,8 +11,10 @@ import type { ContactMessageDTO, ContactMessageStatus, ContactMessageStatusCount
 import type { ContactDirectoryEntry } from "../../shared/contacts";
 import type { EmailMetricsDTO } from "../../shared/email-metrics";
 import { ContactDirectoryTable } from "./contact-messages/ContactDirectoryTable";
-import { ContactMessageCard } from "./contact-messages/ContactMessageCard";
+import { ContactMessageDetailPane } from "./contact-messages/ContactMessageDetailPane";
+import { ContactMessageListItem } from "./contact-messages/ContactMessageListItem";
 import { EmailMetricsCard } from "./contact-messages/EmailMetricsCard";
+import { groupByRecency } from "./contact-messages/group-by-recency";
 import { STATUS_LABELS, STATUS_ORDER } from "./contact-messages/status-labels";
 
 type TabFilter = ContactMessageStatus | "all" | "contacts";
@@ -24,13 +26,18 @@ const EMPTY_COUNTS: ContactMessageStatusCounts = { new: 0, read: 0, replied: 0 }
  * used to only send an email via Resend, so a bounce/outage/spam-filter
  * meant the inquiry vanished with zero record anywhere. Every submission
  * now lands here regardless of what happens to its notification email --
- * see shared/contact-messages.ts and migrations/0004. */
+ * see shared/contact-messages.ts and migrations/0004.
+ *
+ * UI is a mail-client-style master/detail split (list pane + reading
+ * pane) rather than a single column of expandable cards -- see
+ * ContactMessageListItem/ContactMessageDetailPane. */
 export function ContactMessagesPage() {
   const [tab, setTab] = useState<TabFilter>("all");
   const [messages, setMessages] = useState<ContactMessageDTO[]>([]);
   const [counts, setCounts] = useState<ContactMessageStatusCounts>(EMPTY_COUNTS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [metrics, setMetrics] = useState<EmailMetricsDTO | null>(null);
   const [metricsError, setMetricsError] = useState<string | null>(null);
@@ -50,6 +57,15 @@ export function ContactMessagesPage() {
       .then((res) => {
         setMessages(res.messages);
         setCounts(res.counts);
+        // Keep the current selection if it's still in the refreshed list
+        // (e.g. after a status change); otherwise default to the first
+        // message, same reasoning a real mail client uses so the reading
+        // pane is never left pointing at a message that just vanished
+        // from the current tab's filter.
+        setSelectedId((prevId) => {
+          if (prevId && res.messages.some((m) => m.id === prevId)) return prevId;
+          return res.messages[0]?.id ?? null;
+        });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load contact messages."))
       .finally(() => setLoading(false));
@@ -128,6 +144,8 @@ export function ContactMessagesPage() {
   }
 
   const totalCount = counts.new + counts.read + counts.replied;
+  const groups = groupByRecency(messages);
+  const selectedMessage = messages.find((m) => m.id === selectedId) ?? null;
 
   return (
     <div className="analytics-page">
@@ -181,15 +199,35 @@ export function ContactMessagesPage() {
           )}
 
           {!loading && !error && messages.length > 0 && (
-            <div className="contact-messages-list">
-              {messages.map((message) => (
-                <ContactMessageCard
-                  key={message.id}
-                  message={message}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                />
-              ))}
+            <div className={`contact-mail-layout ${selectedMessage ? "contact-mail-has-selection" : ""}`}>
+              <div className="contact-mail-list-pane">
+                {groups.map((group) => (
+                  <div key={group.label} className="contact-mail-group">
+                    <div className="contact-mail-group-label">{group.label}</div>
+                    {group.items.map((message) => (
+                      <ContactMessageListItem
+                        key={message.id}
+                        message={message}
+                        selected={message.id === selectedId}
+                        onSelect={(m) => setSelectedId(m.id)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              <div className="contact-mail-detail-pane">
+                {selectedMessage ? (
+                  <ContactMessageDetailPane
+                    message={selectedMessage}
+                    onBack={() => setSelectedId(null)}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDelete}
+                  />
+                ) : (
+                  <p className="empty-state">Select a message to read it.</p>
+                )}
+              </div>
             </div>
           )}
         </>

@@ -118,6 +118,19 @@ row and its own ID:
    app/policy config, not the login event stream).
 5. Save -- no new secret needed, same `CLOUDFLARE_API_TOKEN`.
 
+#### Adding the Zaraz tools viewer (same token, one more permission)
+
+Low-priority widget -- config that rarely changes, already viewable in
+the Cloudflare dashboard's Zaraz tab. Included because this project
+already documents its Zaraz/GA4 setup elsewhere.
+
+- Add **Zone > Zaraz > Read** to the same existing Zone policy row.
+- **Honest caveat:** the "type" and "enabled" field mapping in
+  `handleZarazConfigRequest` (`worker/api/cf-ops.ts`) is a best-effort
+  guess, not verified against a real response -- if every tool shows
+  "unknown" as its type, that's a mapping fix, not a sign the
+  permission is wrong.
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

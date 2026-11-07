@@ -1,4 +1,10 @@
-import type { AccessLoginEventDTO, CachePurgeResultDTO, DnsRecordDTO, SslCertificateStatusDTO } from "../../shared/cf-ops";
+import type {
+  AccessLoginEventDTO,
+  CachePurgeResultDTO,
+  DnsRecordDTO,
+  SslCertificateStatusDTO,
+  ZarazToolDTO,
+} from "../../shared/cf-ops";
 import { cfApiRequest } from "../lib/cf-rest-client";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
@@ -132,6 +138,41 @@ export async function handleAccessLoginsRequest(env: Env): Promise<Response> {
     allowed: e.allowed,
     ipAddress: e.ip_address ?? null,
     createdAt: e.created_at,
+  }));
+
+  return json(payload);
+}
+
+interface ZarazTool {
+  name?: string;
+  component?: string;
+  enabled?: boolean;
+}
+
+interface ZarazConfig {
+  tools?: Record<string, ZarazTool>;
+}
+
+// Low-confidence field mapping, flagged honestly: Cloudflare doesn't
+// publish a formal schema for this response, so "component" (tool
+// vendor, e.g. "ga4") and "enabled" are best-effort guesses at the
+// actual field names based on how Zaraz's dashboard describes tools.
+// If a tool here shows as "unknown" type or the wrong enabled state,
+// that's a mapping bug to fix here, not a sign the endpoint is wrong --
+// log the raw response once and adjust the two field names below.
+export async function handleZarazConfigRequest(env: Env): Promise<Response> {
+  const creds = requireCredentials(env);
+  if (!creds) return errorResponse("Edge analytics is not configured yet.", 503);
+
+  const config = await cfApiRequest<ZarazConfig>(creds.apiToken, `/zones/${creds.zoneId}/settings/zaraz/config`);
+
+  const payload: ZarazToolDTO[] = Object.values(config.tools ?? {}).map((tool) => ({
+    name: tool.name ?? "Unnamed tool",
+    type: tool.component ?? "unknown",
+    // Guessing that absence of the field means enabled -- only an
+    // explicit "false" is treated as disabled. Unverified against a
+    // real response; adjust if this reads backwards in practice.
+    enabled: tool.enabled !== false,
   }));
 
   return json(payload);

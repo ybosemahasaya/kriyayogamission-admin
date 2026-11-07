@@ -1,5 +1,5 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
-import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest } from "./api/cf-ops";
+import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest, handleZarazConfigRequest } from "./api/cf-ops";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
@@ -126,6 +126,16 @@ export default {
         return await handleAccessLoginsRequest(env);
       } catch (err) {
         console.error("Access login logs API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    if (url.pathname === "/api/cf-ops/zaraz-config" && request.method === "GET") {
+      try {
+        return await handleZarazConfigRequest(env);
+      } catch (err) {
+        console.error("Zaraz config API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

@@ -12,6 +12,7 @@ import { DnsRecordsSection } from "./edge-analytics/DnsRecordsSection";
 import { EdgeKpiCards } from "./edge-analytics/EdgeKpiCards";
 import { EdgeRequestsChart } from "./edge-analytics/EdgeRequestsChart";
 import { SslStatusCard } from "./edge-analytics/SslStatusCard";
+import { ZarazConfigSection } from "./edge-analytics/ZarazConfigSection";
 
 const RANGE_OPTIONS: { value: EdgeAnalyticsRange; label: string }[] = [
   { value: "7d", label: "Last 7 days" },
@@ -116,6 +117,7 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
           <div className="analytics-chart-row">
             <DnsRecordsSection />
             <AccessLoginsSection />
+            <ZarazConfigSection />
           </div>
         </>
       )}

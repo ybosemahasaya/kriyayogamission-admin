@@ -112,15 +112,11 @@ interface AccessLogEntry {
   created_at: string;
 }
 
-// CAVEAT, read before debugging a permission error here: unlike every
-// other endpoint in this file, Access audit logs are an ACCOUNT-level
-// resource (CLOUDFLARE_ACCOUNT_ID, not CLOUDFLARE_ZONE_ID), and the
-// exact permission group name Cloudflare's token builder uses for it
-// wasn't confirmed against the live dashboard before writing this (see
-// README.md for what to search for / try). If this 403s, the error
-// will surface verbatim in the UI same as every other query in this
-// project -- that's the fastest way to find the right permission name,
-// not a sign the endpoint itself is wrong.
+// Account-level resource (CLOUDFLARE_ACCOUNT_ID, not CLOUDFLARE_ZONE_ID)
+// -- requires "Access: Audit Logs: Read" on an Account-scoped policy
+// row, confirmed 2026-11-08 against the live Cloudflare permission
+// catalog (distinct from "Access: Apps and Policies," which only covers
+// app/policy config, not the login event stream itself).
 export async function handleAccessLoginsRequest(env: Env): Promise<Response> {
   if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
     return errorResponse("Access login visibility is not configured yet.", 503);

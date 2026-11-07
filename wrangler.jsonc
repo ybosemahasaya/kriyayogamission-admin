@@ -33,6 +33,19 @@
     }
   ],
 
+  // Workers Analytics Engine -- distinct from the Cloudflare GraphQL
+  // Analytics API used by "Edge Analytics" (see shared/edge-analytics.ts
+  // for why those are different products). This one is for CUSTOM
+  // events this Worker chooses to record about itself -- specifically,
+  // self-hosted API observability for this admin panel's own routes
+  // (request volume/errors/latency per route), which nothing else in
+  // this project currently provides. See worker/lib/api-metrics.ts.
+  // Unlike D1/R2, this dataset needs no manual provisioning in the
+  // Cloudflare dashboard -- it's created automatically on first write.
+  "analytics_engine_datasets": [
+    { "binding": "API_METRICS", "dataset": "admin_panel_api_metrics" }
+  ],
+
   "observability": {
     "enabled": true
   },

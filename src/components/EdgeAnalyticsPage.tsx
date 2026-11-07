@@ -7,6 +7,7 @@ import { formatNumber } from "../lib/format";
 import { AnalyticsDonutChart } from "./analytics/AnalyticsDonutChart";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
 import { AccessLoginsSection } from "./edge-analytics/AccessLoginsSection";
+import { ApiObservabilitySection } from "./edge-analytics/ApiObservabilitySection";
 import { CachePurgeButton } from "./edge-analytics/CachePurgeButton";
 import { DnsRecordsSection } from "./edge-analytics/DnsRecordsSection";
 import { EdgeKpiCards } from "./edge-analytics/EdgeKpiCards";
@@ -119,6 +120,11 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
             <AccessLoginsSection />
             <ZarazConfigSection />
           </div>
+
+          <h2 className="analytics-section-title">
+            This admin panel's own API health (Workers Analytics Engine, not the public site)
+          </h2>
+          <ApiObservabilitySection />
         </>
       )}
     </div>

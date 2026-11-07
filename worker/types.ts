@@ -58,15 +58,15 @@ export interface Env {
    * worker/lib/google-auth.ts resolveGoogleCredentials(). Not sensitive,
    * same reasoning as GA4_PROPERTY_ID. */
   GSC_SITE_URL?: string;
-  /** Resend API key, for GET /emails (email-metrics.ts). This is a
-   * SEPARATE secret from the public site's own RESEND_API_KEY -- the
-   * admin Worker never sends email, it only reads send history, but
-   * Resend scopes API keys per-account (not per-capability), so reading
-   * requires a key same as sending would. Set via `wrangler secret put`
-   * on THIS project; never copy the public site's key verbatim if you'd
-   * rather keep read and send capabilities on separate keys (Resend
-   * supports creating multiple keys on one account for exactly this). */
-  RESEND_API_KEY?: string;
+  /** Resend API key, for GET /emails (email-metrics.ts). Deliberately a
+   * BRAND NEW, separate key from the public site's own RESEND_API_KEY --
+   * named distinctly (_ADMINPANEL suffix) at the user's explicit request
+   * so there's zero chance of this ever being confused with, or
+   * accidentally overwriting, the production sending key. This key only
+   * ever needs read access (GET /emails); it should never be used to
+   * send mail. Set via `wrangler secret put RESEND_API_KEY_ADMINPANEL`
+   * on THIS project. */
+  RESEND_API_KEY_ADMINPANEL?: string;
   /** Shared secret the public site's worker.js sends as `Authorization:
    * Bearer <token>` when POSTing to /api/public/contact-messages. Without
    * this, anyone who finds that URL could write fake contact messages

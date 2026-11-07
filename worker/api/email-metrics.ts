@@ -6,9 +6,9 @@ import type { EmailDailyCount, EmailMetricsDTO } from "../../shared/email-metric
 const DAILY_BREAKDOWN_DAYS = 14;
 
 export async function handleEmailMetricsRequest(env: Env): Promise<Response> {
-  if (!env.RESEND_API_KEY) {
+  if (!env.RESEND_API_KEY_ADMINPANEL) {
     return errorResponse(
-      "Email metrics aren't configured yet. Set RESEND_API_KEY via `wrangler secret put` on this project.",
+      "Email metrics aren't configured yet. Set RESEND_API_KEY_ADMINPANEL via `wrangler secret put` on this project.",
       503,
     );
   }
@@ -16,7 +16,7 @@ export async function handleEmailMetricsRequest(env: Env): Promise<Response> {
   let emails;
   let partial: boolean;
   try {
-    ({ emails, partial } = await listAllSentEmails(env.RESEND_API_KEY));
+    ({ emails, partial } = await listAllSentEmails(env.RESEND_API_KEY_ADMINPANEL));
   } catch (err) {
     if (err instanceof ResendApiError) return errorResponse(err.message, 502);
     throw err;

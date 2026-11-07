@@ -6,7 +6,9 @@ import { useSslStatus } from "../hooks/useSslStatus";
 import { formatNumber } from "../lib/format";
 import { AnalyticsDonutChart } from "./analytics/AnalyticsDonutChart";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
+import { AccessLoginsSection } from "./edge-analytics/AccessLoginsSection";
 import { CachePurgeButton } from "./edge-analytics/CachePurgeButton";
+import { DnsRecordsSection } from "./edge-analytics/DnsRecordsSection";
 import { EdgeKpiCards } from "./edge-analytics/EdgeKpiCards";
 import { EdgeRequestsChart } from "./edge-analytics/EdgeRequestsChart";
 import { SslStatusCard } from "./edge-analytics/SslStatusCard";
@@ -110,6 +112,11 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
               />
             </div>
           )}
+
+          <div className="analytics-chart-row">
+            <DnsRecordsSection />
+            <AccessLoginsSection />
+          </div>
         </>
       )}
     </div>

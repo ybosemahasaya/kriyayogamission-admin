@@ -91,6 +91,15 @@ export interface Env {
    * `wrangler secret put CLOUDFLARE_API_TOKEN`, never committed. */
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  /** Cloudflare Account ID (NOT the same as CLOUDFLARE_ZONE_ID above) --
+   * only needed for the Access login/audit widget, since Zero Trust
+   * Access audit logs are an account-level resource, not a zone-level
+   * one. Not sensitive -- visible in the dashboard sidebar to anyone
+   * with account access, same reasoning as the zone ID. Requires the
+   * SAME CLOUDFLARE_API_TOKEN to also have an Account-scoped policy
+   * added (see README.md) -- the existing Zone-only policy can't reach
+   * this endpoint on its own. */
+  CLOUDFLARE_ACCOUNT_ID?: string;
 }
 
 export interface GalleryImageRow {

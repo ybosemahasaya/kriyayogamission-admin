@@ -94,6 +94,34 @@ Save. Editing a token's permissions doesn't change its secret value, so
 the `CLOUDFLARE_API_TOKEN` you already set stays valid -- no need to run
 `wrangler secret put` again.
 
+#### Adding DNS records reference (same token, one more permission)
+
+- Add **Zone > DNS > Read** to the same existing Zone policy row.
+- Nothing else to configure -- the "DNS records (read-only)" table on
+  Edge Analytics will pick it up automatically.
+
+#### Adding Access login/audit visibility (needs a NEW policy row + a new var)
+
+This one's different from the others above -- Access audit logs are an
+**account-level** resource, not zone-level, so it needs its own policy
+row and its own ID:
+
+1. Cloudflare dashboard -> any zone's Overview page -> right sidebar has
+   an **Account ID** (different from the Zone ID you copied earlier).
+2. Add it to `wrangler.jsonc`'s `vars` block as `CLOUDFLARE_ACCOUNT_ID`.
+3. Back on the `admin-panel-edge-analytics` token -> Edit -> **Add new
+   policy** (don't add this to the existing Zone row -- it needs its
+   own row scoped to **Account**, not Zone).
+4. Resource: this one Cloudflare account. Permission: search for
+   "Access" and look for something read-only related to Access audit
+   logs/authentication logs. **Honest caveat:** the exact permission
+   name wasn't confirmed against the live token builder before this
+   was built -- if the "Recent admin panel logins" table on Edge
+   Analytics shows an error after you wire this up, paste the exact
+   error to Rio and we'll find the right one together. It'll be a quick
+   fix, same as the WAF firewall breakdown's Pro-plan discovery earlier.
+5. Save -- no new secret needed, same `CLOUDFLARE_API_TOKEN`.
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

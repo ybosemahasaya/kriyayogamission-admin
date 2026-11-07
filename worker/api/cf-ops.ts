@@ -1,4 +1,4 @@
-import type { CachePurgeResultDTO, SslCertificateStatusDTO } from "../../shared/cf-ops";
+import type { AccessLoginEventDTO, CachePurgeResultDTO, DnsRecordDTO, SslCertificateStatusDTO } from "../../shared/cf-ops";
 import { cfApiRequest } from "../lib/cf-rest-client";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
@@ -74,5 +74,69 @@ export async function handleCachePurgeRequest(request: Request, env: Env): Promi
   });
 
   const payload: CachePurgeResultDTO = { purgedAt: new Date().toISOString() };
+  return json(payload);
+}
+
+interface DnsRecord {
+  id: string;
+  type: string;
+  name: string;
+  content: string;
+  ttl: number;
+  proxied?: boolean;
+}
+
+export async function handleDnsRecordsRequest(env: Env): Promise<Response> {
+  const creds = requireCredentials(env);
+  if (!creds) return errorResponse("Edge analytics is not configured yet.", 503);
+
+  // per_page=100 -- plenty for a small site's zone; this project has
+  // nowhere near 100 DNS records, so pagination is YAGNI until proven
+  // otherwise. DNS records are public information by definition (any
+  // `dig` query reveals them), so read-only exposure here carries no
+  // meaningful security risk -- this is purely an operational
+  // convenience (check records without leaving the admin panel).
+  const records = await cfApiRequest<DnsRecord[]>(creds.apiToken, `/zones/${creds.zoneId}/dns_records?per_page=100`);
+
+  const payload: DnsRecordDTO[] = records
+    .map((r) => ({ id: r.id, type: r.type, name: r.name, content: r.content, ttl: r.ttl, proxied: r.proxied ?? false }))
+    .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
+
+  return json(payload);
+}
+
+interface AccessLogEntry {
+  email: string;
+  allowed: boolean;
+  ip_address?: string;
+  created_at: string;
+}
+
+// CAVEAT, read before debugging a permission error here: unlike every
+// other endpoint in this file, Access audit logs are an ACCOUNT-level
+// resource (CLOUDFLARE_ACCOUNT_ID, not CLOUDFLARE_ZONE_ID), and the
+// exact permission group name Cloudflare's token builder uses for it
+// wasn't confirmed against the live dashboard before writing this (see
+// README.md for what to search for / try). If this 403s, the error
+// will surface verbatim in the UI same as every other query in this
+// project -- that's the fastest way to find the right permission name,
+// not a sign the endpoint itself is wrong.
+export async function handleAccessLoginsRequest(env: Env): Promise<Response> {
+  if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
+    return errorResponse("Access login visibility is not configured yet.", 503);
+  }
+
+  const entries = await cfApiRequest<AccessLogEntry[]>(
+    env.CLOUDFLARE_API_TOKEN,
+    `/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/access/logs/access-requests?limit=25`,
+  );
+
+  const payload: AccessLoginEventDTO[] = entries.map((e) => ({
+    email: e.email,
+    allowed: e.allowed,
+    ipAddress: e.ip_address ?? null,
+    createdAt: e.created_at,
+  }));
+
   return json(payload);
 }

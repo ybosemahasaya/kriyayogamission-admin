@@ -48,6 +48,14 @@ const HTTP_SUMMARY_QUERY = `
 // combined/joined dimension set. firewallEventsAdaptiveGroups is sampled
 // at high volume like the rest of the "Adaptive" family of datasets --
 // fine for a "what's trending" card, not for exact compliance-grade counts.
+//
+// CONFIRMED 2026-11-08 against kriyayogamission.org (Free plan): this
+// dataset returns "zone 'X' does not have access to the path" on Free --
+// Cloudflare gates Firewall Events analytics behind Pro plan or higher.
+// httpRequests1dGroups above has no such restriction. That's exactly why
+// this query is caught independently in the handler below instead of
+// Promise.all'd with the http summary -- one plan-gated dataset
+// shouldn't block the KPIs/chart that DO work on every plan.
 const FIREWALL_BREAKDOWN_QUERY = `
   query EdgeFirewallBreakdown($zoneTag: String!, $since: Time!, $until: Time!) {
     viewer {

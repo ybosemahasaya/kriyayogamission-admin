@@ -67,7 +67,12 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
           <EdgeRequestsChart points={data.daily} theme={theme} />
 
           {data.firewallError ? (
-            <p className="form-error">WAF/firewall breakdown unavailable: {data.firewallError}</p>
+            <p className="form-error">
+              WAF/firewall breakdown unavailable: {data.firewallError}
+              <br />
+              (Common cause: Cloudflare gates Firewall Events analytics behind Pro plan or higher -- a Free-plan
+              zone only gets the request-level stats shown above, which don't require this.)
+            </p>
           ) : (
             <div className="analytics-chart-row">
               <AnalyticsDonutChart

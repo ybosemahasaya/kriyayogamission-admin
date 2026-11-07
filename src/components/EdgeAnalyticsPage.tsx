@@ -2,11 +2,14 @@ import { useState } from "react";
 import type { EdgeAnalyticsRange } from "../../shared/edge-analytics";
 import type { Theme } from "../hooks/useTheme";
 import { useEdgeAnalytics } from "../hooks/useEdgeAnalytics";
+import { useSslStatus } from "../hooks/useSslStatus";
 import { formatNumber } from "../lib/format";
 import { AnalyticsDonutChart } from "./analytics/AnalyticsDonutChart";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
+import { CachePurgeButton } from "./edge-analytics/CachePurgeButton";
 import { EdgeKpiCards } from "./edge-analytics/EdgeKpiCards";
 import { EdgeRequestsChart } from "./edge-analytics/EdgeRequestsChart";
+import { SslStatusCard } from "./edge-analytics/SslStatusCard";
 
 const RANGE_OPTIONS: { value: EdgeAnalyticsRange; label: string }[] = [
   { value: "7d", label: "Last 7 days" },
@@ -23,6 +26,10 @@ const RANGE_OPTIONS: { value: EdgeAnalyticsRange; label: string }[] = [
 export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
   const [range, setRange] = useState<EdgeAnalyticsRange>("7d");
   const { data, loading, error, notConfigured } = useEdgeAnalytics(range);
+  // Independent hook/endpoint from the range-based analytics above --
+  // SSL status doesn't depend on a date range and shouldn't refetch
+  // every time the 7d/30d tab changes.
+  const sslStatus = useSslStatus();
 
   return (
     <div className="analytics-page">
@@ -49,6 +56,16 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
           </div>
         )}
       </div>
+
+      {!notConfigured && (sslStatus.data || !sslStatus.loading) && (
+        <div className="analytics-kpi-grid">
+          {sslStatus.data && <SslStatusCard status={sslStatus.data} />}
+          <div className="analytics-kpi-card">
+            <span className="analytics-kpi-label">Cache</span>
+            <CachePurgeButton />
+          </div>
+        </div>
+      )}
 
       {notConfigured && (
         <p className="empty-state">

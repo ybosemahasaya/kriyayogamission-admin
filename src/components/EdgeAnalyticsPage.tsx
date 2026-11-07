@@ -66,24 +66,28 @@ export function EdgeAnalyticsPage({ theme }: { theme: Theme }) {
 
           <EdgeRequestsChart points={data.daily} theme={theme} />
 
-          <div className="analytics-chart-row">
-            <AnalyticsDonutChart
-              title="WAF/firewall actions"
-              theme={theme}
-              labels={data.firewallActions.map((a) => a.action)}
-              values={data.firewallActions.map((a) => a.count)}
-            />
-            <AnalyticsTable
-              title="Top blocked/challenged paths"
-              columns={["Path", "Events"]}
-              rows={data.firewallTopPaths.map((p) => [p.path, formatNumber(p.count)])}
-            />
-            <AnalyticsTable
-              title="Top source countries"
-              columns={["Country", "Events"]}
-              rows={data.firewallTopCountries.map((c) => [c.country, formatNumber(c.count)])}
-            />
-          </div>
+          {data.firewallError ? (
+            <p className="form-error">WAF/firewall breakdown unavailable: {data.firewallError}</p>
+          ) : (
+            <div className="analytics-chart-row">
+              <AnalyticsDonutChart
+                title="WAF/firewall actions"
+                theme={theme}
+                labels={data.firewallActions.map((a) => a.action)}
+                values={data.firewallActions.map((a) => a.count)}
+              />
+              <AnalyticsTable
+                title="Top blocked/challenged paths"
+                columns={["Path", "Events"]}
+                rows={data.firewallTopPaths.map((p) => [p.path, formatNumber(p.count)])}
+              />
+              <AnalyticsTable
+                title="Top source countries"
+                columns={["Country", "Events"]}
+                rows={data.firewallTopCountries.map((c) => [c.country, formatNumber(c.count)])}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

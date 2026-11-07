@@ -113,21 +113,33 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
   const until = new Date();
   const since = new Date(until.getTime() - days * 24 * 60 * 60 * 1000);
 
-  const [httpData, firewallData] = await Promise.all([
-    runCloudflareGraphQL<HttpSummaryResponse>(creds.apiToken, HTTP_SUMMARY_QUERY, {
-      zoneTag: creds.zoneTag,
-      since: isoDate(since),
-      until: isoDate(until),
-      // +1 so an inclusive since..until date range (both endpoints
-      // counted as whole days) never gets truncated by the limit.
-      limit: days + 1,
-    }),
-    runCloudflareGraphQL<FirewallBreakdownResponse>(creds.apiToken, FIREWALL_BREAKDOWN_QUERY, {
+  // httpRequests1dGroups is required -- without it there's nothing to
+  // show at all, so let a failure here bubble up as a real error (same
+  // as before). firewallEventsAdaptiveGroups is queried independently
+  // and allowed to fail on its own: dataset/field availability can vary
+  // by Cloudflare plan (see cf-graphql-client.ts), and one unavailable
+  // dataset shouldn't blank out the KPIs/chart that DID load fine.
+  const httpData = await runCloudflareGraphQL<HttpSummaryResponse>(creds.apiToken, HTTP_SUMMARY_QUERY, {
+    zoneTag: creds.zoneTag,
+    since: isoDate(since),
+    until: isoDate(until),
+    // +1 so an inclusive since..until date range (both endpoints
+    // counted as whole days) never gets truncated by the limit.
+    limit: days + 1,
+  });
+
+  let firewallData: FirewallBreakdownResponse | null = null;
+  let firewallError: string | null = null;
+  try {
+    firewallData = await runCloudflareGraphQL<FirewallBreakdownResponse>(creds.apiToken, FIREWALL_BREAKDOWN_QUERY, {
       zoneTag: creds.zoneTag,
       since: since.toISOString(),
       until: until.toISOString(),
-    }),
-  ]);
+    });
+  } catch (err) {
+    firewallError = err instanceof Error ? err.message : String(err);
+    console.error("Edge analytics firewall breakdown query failed (non-fatal):", firewallError);
+  }
 
   const httpZone = httpData.viewer.zones[0];
   const daily = (httpZone?.httpRequests1dGroups ?? []).map((row) => ({
@@ -150,7 +162,7 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
     { totalRequests: 0, cachedRequests: 0, totalBytes: 0, totalThreats: 0, totalUniques: 0 },
   );
 
-  const firewallZone = firewallData.viewer.zones[0];
+  const firewallZone = firewallData?.viewer.zones[0];
 
   const payload: EdgeAnalyticsDTO = {
     range,
@@ -168,6 +180,7 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
       country: row.dimensions.clientCountryName,
       count: row.count,
     })),
+    firewallError,
   };
 
   return json(payload);

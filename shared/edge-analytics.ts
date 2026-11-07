@@ -58,4 +58,11 @@ export interface EdgeAnalyticsDTO {
   firewallActions: FirewallActionCount[];
   firewallTopPaths: FirewallPathCount[];
   firewallTopCountries: FirewallCountryCount[];
+  /** Non-null when the firewallEventsAdaptiveGroups query failed on its
+   * own (e.g. dataset unavailable on this zone's plan, or the token
+   * lacks a permission the httpRequests1dGroups query didn't need) --
+   * surfaced verbatim so the cause is visible instead of blanking the
+   * entire page over one dataset. The core KPIs/chart above still load
+   * fine when this is set. */
+  firewallError: string | null;
 }

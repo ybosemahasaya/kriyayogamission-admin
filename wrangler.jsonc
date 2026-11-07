@@ -58,6 +58,7 @@
     // Search Console before relying on it; a URL-prefix property would
     // need the literal verified URL instead, e.g. "https://kriyayogamission.org/").
     "GSC_SITE_URL": "sc-domain:kriyayogamission.org",
-    "CLOUDFLARE_ZONE_ID": "08a390325850c6563af18917ba92a460"
+    "CLOUDFLARE_ZONE_ID": "08a390325850c6563af18917ba92a460",
+    "CLOUDFLARE_ACCOUNT_ID": "78938e8325852a3f553ff4b692ac4626"
   }
 }

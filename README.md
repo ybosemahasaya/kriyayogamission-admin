@@ -131,6 +131,34 @@ already documents its Zaraz/GA4 setup elsewhere.
   "unknown" as its type, that's a mapping fix, not a sign the
   permission is wrong.
 
+### Admin API observability (Workers Analytics Engine)
+
+A DIFFERENT Cloudflare product from everything above -- not Cloudflare's
+own logs about the public site's zone, but custom events THIS admin
+Worker records about its own API requests (method/path/status/latency
+per route). See `shared/api-observability.ts` for why this is
+deliberately separate from the rest of Edge Analytics.
+
+1. The `analytics_engine_datasets` binding in `wrangler.jsonc` is
+   already committed -- unlike D1/R2, Analytics Engine datasets need no
+   manual provisioning in the dashboard; the dataset is created
+   automatically the first time the Worker writes to it. Just deploy.
+2. Add **Account Analytics: Read** to the SAME Account-scoped policy
+   row you created above for Access audit logs (same account resource,
+   just one more permission on that row -- no third policy row needed).
+3. That's it -- no new secret, reuses `CLOUDFLARE_ACCOUNT_ID`/
+   `CLOUDFLARE_API_TOKEN`.
+4. **Expect an empty table at first.** There's no historical backfill --
+   the "Admin API by route" table only has data going forward from
+   whenever this Worker's first deploy with the binding starts handling
+   requests. Click around the admin panel for a minute, then refresh.
+5. **Honest caveat:** Cloudflare's Analytics Engine SQL dialect
+   (ClickHouse-like) isn't formally documented -- the queries in
+   `worker/api/api-observability.ts` are written against known
+   conventions but not verified live before shipping. If this errors,
+   paste the exact message and the SQL gets a quick fix, same pattern
+   as every other query in this project.
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

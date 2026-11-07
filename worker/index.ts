@@ -1,5 +1,6 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
 import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest, handleZarazConfigRequest } from "./api/cf-ops";
+import { handleApiObservabilityRequest } from "./api/api-observability";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
@@ -18,10 +19,29 @@ import {
   handleSiteAuditRunsRequest,
 } from "./api/site-audit";
 import { errorResponse } from "./lib/http";
+import { recordApiMetric } from "./lib/api-metrics";
 import type { Env } from "./types";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const startedAt = Date.now();
+    const response = await routeRequest(request, env, ctx);
+    // Fire-and-forget (see recordApiMetric -- it internally uses
+    // ctx.waitUntil and never throws), timed around the ENTIRE routing
+    // chain below rather than inside each individual handler, so adding
+    // this didn't require touching a single one of the existing route
+    // blocks.
+    recordApiMetric(env, ctx, {
+      method: request.method,
+      pathname: new URL(request.url).pathname,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+    });
+    return response;
+  },
+} satisfies ExportedHandler<Env>;
+
+async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     // Public, unauthenticated landing page. Cloudflare Access has no way
@@ -136,6 +156,16 @@ export default {
         return await handleZarazConfigRequest(env);
       } catch (err) {
         console.error("Zaraz config API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    if (url.pathname === "/api/observability/api-metrics" && request.method === "GET") {
+      try {
+        return await handleApiObservabilityRequest(env);
+      } catch (err) {
+        console.error("API observability error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }
@@ -336,5 +366,4 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
-  },
-} satisfies ExportedHandler<Env>;
+}

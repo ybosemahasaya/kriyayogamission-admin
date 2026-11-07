@@ -100,6 +100,11 @@ export interface Env {
    * added (see README.md) -- the existing Zone-only policy can't reach
    * this endpoint on its own. */
   CLOUDFLARE_ACCOUNT_ID?: string;
+  /** Workers Analytics Engine binding for self-hosted API observability
+   * (see worker/lib/api-metrics.ts and wrangler.jsonc). Optional like
+   * every other binding here -- absence just means recordApiMetric()
+   * silently no-ops, same degrade-safely pattern as everything else. */
+  API_METRICS?: AnalyticsEngineDataset;
 }
 
 export interface GalleryImageRow {

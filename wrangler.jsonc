@@ -57,6 +57,7 @@
     // unit -- confirm this is actually how the property is verified in
     // Search Console before relying on it; a URL-prefix property would
     // need the literal verified URL instead, e.g. "https://kriyayogamission.org/").
-    "GSC_SITE_URL": "sc-domain:kriyayogamission.org"
+    "GSC_SITE_URL": "sc-domain:kriyayogamission.org",
+    "CLOUDFLARE_ZONE_ID": "08a390325850c6563af18917ba92a460"
   }
 }

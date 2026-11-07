@@ -76,7 +76,21 @@ export interface Env {
    * CONTACT_INGEST_TOKEN` on both this Worker and the public site's
    * Worker -- the latter requires explicit human sign-off per the
    * STRICT RESTRICTION banner, see docs/admin-panel-architecture.html. */
-  CONTACT_INGEST_TOKEN?: string;
+    CONTACT_INGEST_TOKEN?: string;
+  /** Cloudflare GraphQL Analytics API credentials, for the "Edge
+   * Analytics" dashboard card (see docs/admin-panel-architecture.html
+   * Phase 3, "cloudflare-web-analytics"). This is READ-ONLY querying of
+   * Cloudflare's own edge logs for the PUBLIC site's zone
+   * (kriyayogamission.org) via their public GraphQL API -- it never
+   * modifies the public site's repo, Worker, or config, so it does not
+   * violate the "never touch the public site" restriction above.
+   * CLOUDFLARE_ZONE_ID is not sensitive (visible in the Cloudflare
+   * dashboard's zone Overview page to anyone with access) and lives as
+   * a plain var in wrangler.jsonc, same reasoning as GA4_PROPERTY_ID.
+   * CLOUDFLARE_API_TOKEN is a real credential -- set via
+   * `wrangler secret put CLOUDFLARE_API_TOKEN`, never committed. */
+  CLOUDFLARE_ZONE_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
 }
 
 export interface GalleryImageRow {

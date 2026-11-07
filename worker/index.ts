@@ -1,5 +1,6 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
+import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
 import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
@@ -68,6 +69,19 @@ export default {
         return await handleAnalyticsSummaryRequest(request, env);
       } catch (err) {
         console.error("Analytics API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Cloudflare GraphQL Analytics API -- see worker/api/edge-analytics.ts
+    // and shared/edge-analytics.ts for why this is a separate data source
+    // from both GA4 and Workers Analytics Engine.
+    if (url.pathname === "/api/edge-analytics" && request.method === "GET") {
+      try {
+        return await handleEdgeAnalyticsRequest(request, env);
+      } catch (err) {
+        console.error("Edge analytics API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

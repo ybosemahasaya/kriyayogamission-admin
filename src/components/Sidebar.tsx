@@ -1,8 +1,25 @@
 import type { MouseEvent } from "react";
 import type { Theme } from "../hooks/useTheme";
-import { BarChartIcon, ImageIcon, LinkIcon, MailIcon, MoonIcon, SearchIcon, ShieldCheckIcon, SunIcon } from "./icons";
+import {
+  BarChartIcon,
+  GlobeIcon,
+  ImageIcon,
+  LinkIcon,
+  MailIcon,
+  MoonIcon,
+  SearchIcon,
+  ShieldCheckIcon,
+  SunIcon,
+} from "./icons";
 
-export type SidebarView = "gallery" | "contact-messages" | "links" | "ga4" | "search-console" | "site-audit";
+export type SidebarView =
+  | "gallery"
+  | "contact-messages"
+  | "links"
+  | "ga4"
+  | "search-console"
+  | "edge-analytics"
+  | "site-audit";
 
 interface Props {
   theme: Theme;
@@ -83,6 +100,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <SearchIcon />
           <span className="sidebar-label">Search Console</span>
+        </button>
+        <button
+          type="button"
+          className={activeView === "edge-analytics" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={(e) => handleNavigate("edge-analytics", e)}
+        >
+          <GlobeIcon />
+          <span className="sidebar-label">Edge Analytics</span>
         </button>
 
         <span className="sidebar-nav-label sidebar-label">Resources</span>

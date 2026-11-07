@@ -93,6 +93,10 @@
           <strong class="text-green-800">Quick Links + theming</strong>
           <p class="text-stone-600 mt-1">One-click links to Cloudflare, GitHub, GA4, Search Console, Resend, Google Cloud Console; light/dark theme toggle persisted per browser.</p>
         </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Visual redesign (2026-11-07)</strong>
+          <p class="text-stone-600 mt-1">Hover-expand icon sidebar with a content-dim effect, pill-segmented tabs, a self-hosted serif accent font, and refined KPI cards -- adapted from a reference dashboard's layout/motion patterns while keeping the panel's own warm saffron/stone color identity. See "Visual design system" in the Technical Design section.</p>
+        </div>
       </div>
       <p class="text-green-700 leading-relaxed mt-3 text-sm">
         <strong>Still genuinely open:</strong> the <code class="bg-green-100 px-1 rounded">PROD_DEPLOY_HOOK_URL</code>
@@ -611,6 +615,52 @@
         actually trigger a production build. Each hook is independent and a silent no-op if its URL
         isn't set, so one missing/misconfigured hook never blocks the other.
       </p>
+
+      <h3 class="font-semibold text-stone-800 mb-2 mt-4">Visual design system (reworked 2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-2">
+        The shell's look and feel was reworked after reviewing a reference SaaS dashboard's video demo
+        for layout/motion patterns -- <strong>only the structural and interaction patterns were
+        adapted, not the reference's literal color palette</strong>, so the panel keeps its existing
+        warm saffron/stone "Sacred Warmth" dark theme (shared with the public site) rather than
+        switching to a neutral gray-black scheme.
+      </p>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-2">
+        <li><strong>Hover-expand sidebar:</strong> <code class="bg-stone-100 px-1 rounded">Sidebar.tsx</code>
+          renders collapsed to a 76px icon-only strip (<code class="bg-stone-100 px-1 rounded">position: fixed</code>)
+          and expands to 248px revealing text labels on <code class="bg-stone-100 px-1 rounded">:hover</code>
+          or <code class="bg-stone-100 px-1 rounded">:focus-within</code>, dimming the main content behind
+          it via a CSS <code class="bg-stone-100 px-1 rounded">filter: brightness()</code> sibling-hover
+          rule -- pure CSS, no React state. Every label stays a real DOM text node at all times (just
+          opacity-faded while collapsed), so screen readers and keyboard focus always see full labels.</li>
+        <li><strong>Two known pitfalls, both fixed:</strong> (1) clicking a nav button leaves the browser's
+          focus sitting on it, which combined with <code class="bg-stone-100 px-1 rounded">:focus-within</code>
+          would otherwise keep the sidebar stuck open forever afterward -- each nav button now calls
+          <code class="bg-stone-100 px-1 rounded">e.currentTarget.blur()</code> right after navigating.
+          (2) touchscreens have no real "pointer left the element" event, so a tap can leave
+          <code class="bg-stone-100 px-1 rounded">:hover</code> permanently stuck matching on many mobile
+          browsers -- the <code class="bg-stone-100 px-1 rounded">:hover</code> expand rules are scoped
+          inside <code class="bg-stone-100 px-1 rounded">@media (hover: hover) and (pointer: fine)</code>
+          so touch-primary devices simply keep the always-tappable collapsed strip instead of a
+          hover affordance that doesn't meaningfully exist on touch anyway (capability-based, not a
+          viewport-width check, so a touchscreen laptop with a mouse still gets the real behavior).
+          Both confirmed via <code class="bg-stone-100 px-1 rounded">qa-kitten</code> browser QA.</li>
+        <li><strong>Pill-segmented tabs:</strong> the shared <code class="bg-stone-100 px-1 rounded">.tabs</code>/<code class="bg-stone-100 px-1 rounded">.tab</code>
+          classes (Gallery's Published/Drafts, Contact Messages' All/New/Read/Replied/Contacts, GA4, Search
+          Console) moved from an underline-tab pattern to a rounded pill container with a solid-color
+          active pill, matching the reference UI's segmented-toggle look.</li>
+        <li><strong>Self-hosted serif accent font:</strong> page titles and the sidebar brand mark already
+          referenced <code class="bg-stone-100 px-1 rounded">"Playfair Display"</code> by name but it was
+          never actually loaded as a web font (silently falling back to Georgia) -- now bundled locally via
+          the <code class="bg-stone-100 px-1 rounded">@fontsource/playfair-display</code> npm package (400/600/700
+          + italic weights), so there's no external Google Fonts CDN call at runtime.</li>
+        <li><strong>KPI card refinement:</strong> the shared <code class="bg-stone-100 px-1 rounded">.analytics-kpi-card</code>
+          class (reused across GA4, Contact Messages' Email Delivery card, Site Audit's Overview/Compare tabs, and
+          Search Console) got a larger border-radius, a bigger bold value, and a subtle border-color hover state.</li>
+        <li><strong>Explicit z-index hierarchy:</strong> the sidebar (50) and the modal overlay used to tie at the
+          same z-index and only stacked correctly by coincidence of DOM paint order; the modal overlay is now
+          explicitly above both the sidebar (50) and the upload-progress panel (60) at z-index 70, so it's
+          guaranteed to render on top regardless of source order.</li>
+      </ul>
     </section>
 
     <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#86efac;">
@@ -627,7 +677,13 @@
         Once authenticated, the admin lands on a two-pane shell: a left <strong>Sidebar</strong> (brand
         mark, Gallery / Contact Messages / Analytics / Site Audit / Quick Links navigation, light/dark
         theme toggle persisted per browser) and a main content pane. A top-right <strong>Profile menu</strong>
-        shows the signed-in email (from Cloudflare Access) and a real sign-out link.
+        shows the signed-in email (from Cloudflare Access) and a real sign-out link. The sidebar
+        (reworked 2026-11-07) sits collapsed to a slim icon-only strip by default and expands on
+        hover/keyboard-focus to reveal text labels, gently dimming the page behind it -- see "Visual
+        design system" in the Technical Design section above for the interaction details and the two
+        mobile/click edge cases that had to be fixed along the way. Tabbed views throughout the app
+        (Published/Drafts, All/New/Read/Replied/Contacts, etc.) render as a rounded pill-segmented
+        control rather than underlined tabs.
       </p>
 
       <h3 class="font-semibold text-stone-800 mb-1">Gallery page (default view)</h3>

@@ -1,5 +1,5 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
-import { handleContactMessagesRequest } from "./api/contact-messages";
+import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
 import { handleImageRequest } from "./api/images";
@@ -158,6 +158,18 @@ export default {
         return await handleEmailMetricsRequest(env);
       } catch (err) {
         console.error("Email metrics API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Checked before the generic /api/contact-messages/:id matcher below
+    // -- otherwise "backfill-from-resend" would be parsed as a message id.
+    if (url.pathname === "/api/contact-messages/backfill-from-resend" && request.method === "POST") {
+      try {
+        return await handleContactMessagesBackfillRequest(env);
+      } catch (err) {
+        console.error("Contact messages backfill API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

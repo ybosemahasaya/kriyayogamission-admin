@@ -30,6 +30,31 @@ const MAX_PAGES = 20;
 
 export class ResendApiError extends Error {}
 
+export interface ResendEmailDetail {
+  id: string;
+  subject: string;
+  created_at: string;
+  html?: string;
+  text?: string;
+}
+
+/**
+ * GET /emails/:id -- unlike the list endpoint, this includes the actual
+ * HTML/text body, which is what the contact-form backfill
+ * (worker/lib/contact-html-parser.ts) needs to reconstruct a historical
+ * submission's name/email/phone/address/message.
+ */
+export async function getSentEmailContent(apiKey: string, emailId: string): Promise<ResendEmailDetail> {
+  const res = await fetch(`https://api.resend.com/emails/${emailId}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ResendApiError(`Resend retrieve-email request failed (${res.status}): ${body}`);
+  }
+  return (await res.json()) as ResendEmailDetail;
+}
+
 /**
  * Pages through every sent email Resend knows about for this account,
  * oldest-call-first isn't guaranteed by their API (cursor order is

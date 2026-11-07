@@ -1659,6 +1659,28 @@
   white-space: nowrap;
 }
 
+.contact-backfilled-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.contact-backfill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.contact-backfill-result {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .contact-message-address {
   color: var(--text-muted);
   font-size: 0.85rem;

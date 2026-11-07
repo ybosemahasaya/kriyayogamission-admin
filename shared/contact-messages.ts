@@ -25,6 +25,23 @@ export interface ContactMessageDTO {
   emailSent: boolean;
   resendMessageId: string | null;
   createdAt: string;
+  /** True for rows reconstructed after the fact from Resend's send
+   * history (see worker/api/contact-messages.ts's backfill handler),
+   * rather than captured live by the public site's own ingest call.
+   * Backfilled rows necessarily have reduced fidelity -- no source_ip,
+   * createdAt is Resend's send timestamp rather than the exact
+   * form-submit moment, status defaults to 'read' rather than 'new'. */
+  backfilled: boolean;
+}
+
+/** Result of a POST /api/contact-messages/backfill-from-resend run --
+ * idempotent, safe to call more than once (already-imported rows are
+ * matched by resendMessageId and counted as alreadyPresent, not
+ * duplicated). */
+export interface ContactMessageBackfillResult {
+  imported: number;
+  alreadyPresent: number;
+  skipped: number;
 }
 
 /** Counts by status, always present (0 if none), so the admin UI can

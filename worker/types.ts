@@ -118,6 +118,7 @@ export interface ContactMessageRow {
   resend_message_id: string | null;
   source_ip: string | null;
   created_at: string;
+  backfilled: number; // 0 or 1 -- see migrations/0005_add_contact_messages_backfilled.sql
 }
 
 export function contactMessageRowToDTO(row: ContactMessageRow): ContactMessageDTO {
@@ -132,5 +133,6 @@ export function contactMessageRowToDTO(row: ContactMessageRow): ContactMessageDT
     emailSent: row.email_sent === 1,
     resendMessageId: row.resend_message_id,
     createdAt: row.created_at,
+    backfilled: row.backfilled === 1,
   };
 }

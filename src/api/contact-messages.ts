@@ -1,4 +1,9 @@
-import type { ContactMessageDTO, ContactMessageListResponse, ContactMessageStatus } from "../../shared/contact-messages";
+import type {
+  ContactMessageBackfillResult,
+  ContactMessageDTO,
+  ContactMessageListResponse,
+  ContactMessageStatus,
+} from "../../shared/contact-messages";
 import type { EmailMetricsDTO } from "../../shared/email-metrics";
 
 const BASE = "/api/contact-messages";
@@ -28,4 +33,8 @@ export function deleteContactMessage(id: string): Promise<null> {
 
 export function getEmailMetrics(): Promise<EmailMetricsDTO> {
   return fetch("/api/email-metrics").then(parseOrThrow);
+}
+
+export function backfillContactMessagesFromResend(): Promise<ContactMessageBackfillResult> {
+  return fetch(`${BASE}/backfill-from-resend`, { method: "POST" }).then(parseOrThrow);
 }

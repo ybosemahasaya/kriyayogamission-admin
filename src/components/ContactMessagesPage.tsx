@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { deleteContactMessage, getEmailMetrics, listContactMessages, updateContactMessageStatus } from "../api/contact-messages";
+import {
+  backfillContactMessagesFromResend,
+  deleteContactMessage,
+  getEmailMetrics,
+  listContactMessages,
+  updateContactMessageStatus,
+} from "../api/contact-messages";
 import type { ContactMessageDTO, ContactMessageStatus, ContactMessageStatusCounts } from "../../shared/contact-messages";
 import type { EmailMetricsDTO } from "../../shared/email-metrics";
 import { ContactMessageCard } from "./contact-messages/ContactMessageCard";
@@ -25,6 +31,9 @@ export function ContactMessagesPage() {
 
   const [metrics, setMetrics] = useState<EmailMetricsDTO | null>(null);
   const [metricsError, setMetricsError] = useState<string | null>(null);
+
+  const [backfillRunning, setBackfillRunning] = useState(false);
+  const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -65,12 +74,48 @@ export function ContactMessagesPage() {
     refresh();
   }
 
+  // One-time (but safely re-runnable) recovery for submissions that
+  // happened before this feature existed -- reconstructs them from
+  // Resend's own send history. See worker/api/contact-messages.ts's
+  // backfill handler for how it avoids duplicating already-imported rows.
+  async function handleBackfill() {
+    if (
+      !window.confirm(
+        "Import historical contact-form submissions from Resend's send history? " +
+          "Already-imported messages are skipped automatically, so this is safe to run more than once.",
+      )
+    ) {
+      return;
+    }
+    setBackfillRunning(true);
+    setBackfillMessage(null);
+    try {
+      const result = await backfillContactMessagesFromResend();
+      setBackfillMessage(
+        `Imported ${result.imported} new message${result.imported === 1 ? "" : "s"}` +
+          ` (${result.alreadyPresent} already present, ${result.skipped} skipped).`,
+      );
+      refresh();
+    } catch (err) {
+      setBackfillMessage(err instanceof Error ? err.message : "Backfill failed.");
+    } finally {
+      setBackfillRunning(false);
+    }
+  }
+
   const totalCount = counts.new + counts.read + counts.replied;
 
   return (
     <div className="analytics-page">
       {metricsError && <p className="form-error">{metricsError}</p>}
       {metrics && <EmailMetricsCard metrics={metrics} />}
+
+      <div className="contact-backfill-row">
+        <button type="button" className="btn-secondary" onClick={handleBackfill} disabled={backfillRunning}>
+          {backfillRunning ? "Importing..." : "Import historical messages from Resend"}
+        </button>
+        {backfillMessage && <span className="contact-backfill-result">{backfillMessage}</span>}
+      </div>
 
       <div className="tabs">
         <button type="button" className={tab === "all" ? "tab active" : "tab"} onClick={() => setTab("all")}>

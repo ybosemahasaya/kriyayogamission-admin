@@ -25,6 +25,14 @@ export function ContactMessageCard({ message, onStatusChange, onDelete }: Props)
         </div>
         <div className="contact-message-card-meta">
           <span className={`contact-status-badge contact-status-${message.status}`}>{STATUS_LABELS[message.status]}</span>
+          {message.backfilled && (
+            <span
+              className="contact-backfilled-badge"
+              title="Reconstructed from Resend's send history after the fact -- created-at is the notification email's send time, and this message was never captured by the live ingest flow."
+            >
+              Imported from Resend
+            </span>
+          )}
           {!message.emailSent && (
             <span
               className="contact-email-failed-badge"

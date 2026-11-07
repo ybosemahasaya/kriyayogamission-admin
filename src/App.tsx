@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { bulkDeleteImages, listImages } from "./api/gallery";
+import { listCategories } from "./api/gallery-categories";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { BulkEditModal } from "./components/BulkEditModal";
 import { ContactMessagesPage } from "./components/ContactMessagesPage";
 import { EditImageModal } from "./components/EditImageModal";
 import { Ga4Page } from "./components/Ga4Page";
+import { ManageCategoriesModal } from "./components/gallery/ManageCategoriesModal";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { Modal } from "./components/Modal";
 import { ProfileMenu } from "./components/ProfileMenu";
@@ -14,10 +16,10 @@ import { Sidebar, type SidebarView } from "./components/Sidebar";
 import { SiteAuditPage } from "./components/SiteAuditPage";
 import { UploadForm } from "./components/UploadForm";
 import { UploadProgressPanel } from "./components/UploadProgressPanel";
-import { PlusIcon, SearchIcon } from "./components/icons";
+import { PlusIcon, SearchIcon, SettingsIcon } from "./components/icons";
 import { useTheme } from "./hooks/useTheme";
 import { useUploadQueue, type QueuedUpload } from "./hooks/useUploadQueue";
-import { GALLERY_CATEGORIES, type GalleryCategory } from "../shared/gallery-categories";
+import type { GalleryCategoryDTO } from "../shared/gallery-categories";
 import type { GalleryImageDTO } from "../shared/gallery-image";
 import "./App.css";
 
@@ -26,17 +28,19 @@ type Tab = "published" | "drafts";
 function App() {
   const [view, setView] = useState<SidebarView>("gallery");
   const [images, setImages] = useState<GalleryImageDTO[]>([]);
+  const [categories, setCategories] = useState<GalleryCategoryDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [tab, setTab] = useState<Tab>("published");
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<GalleryCategory | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string | "all">("all");
 
   const [showUpload, setShowUpload] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImageDTO | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [showManageCategories, setShowManageCategories] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
 
@@ -48,9 +52,16 @@ function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  const refreshCategories = useCallback(() => {
+    listCategories()
+      .then(setCategories)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load categories."));
+  }, []);
+
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshCategories();
+  }, [refresh, refreshCategories]);
 
   // Refresh after each individual upload settles (not just at the end of
   // the whole batch) so photos appear in the grid progressively as they
@@ -182,15 +193,19 @@ function App() {
               <select
                 className="category-select"
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value as GalleryCategory | "all")}
+                onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="all">All categories</option>
-                {GALLERY_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
                   </option>
                 ))}
               </select>
+
+              <button type="button" className="btn-secondary" onClick={() => setShowManageCategories(true)}>
+                <SettingsIcon /> Manage Categories
+              </button>
 
               <button type="button" className="btn-primary" onClick={() => setShowUpload(true)}>
                 <PlusIcon /> Add Photo
@@ -226,7 +241,19 @@ function App() {
 
       {showUpload && (
         <Modal title="Add photo" onClose={() => setShowUpload(false)}>
-          <UploadForm onStartUpload={handleStartUpload} />
+          <UploadForm categories={categories} onStartUpload={handleStartUpload} />
+        </Modal>
+      )}
+
+      {showManageCategories && (
+        <Modal title="Manage categories" onClose={() => setShowManageCategories(false)}>
+          <ManageCategoriesModal
+            categories={categories}
+            onChanged={() => {
+              refreshCategories();
+              refresh();
+            }}
+          />
         </Modal>
       )}
 
@@ -234,6 +261,7 @@ function App() {
         <Modal title="Edit photo" onClose={() => setEditingImage(null)}>
           <EditImageModal
             image={editingImage}
+            categories={categories}
             onSaved={() => {
               setEditingImage(null);
               refresh();
@@ -247,6 +275,7 @@ function App() {
           <BulkEditModal
             count={selectedIds.size}
             imageIds={[...selectedIds]}
+            categories={categories}
             onSaved={() => {
               setShowBulkEdit(false);
               setSelectedIds(new Set());

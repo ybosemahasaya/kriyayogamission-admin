@@ -3,9 +3,11 @@ import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } fr
 import { handleContactsRequest } from "./api/contacts";
 import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
+import { handleGalleryCategoriesRequest } from "./api/gallery-categories";
 import { handleImageRequest } from "./api/images";
 import { handlePublicContactRequest } from "./api/public-contact";
 import { handlePublicGalleryRequest } from "./api/public-gallery";
+import { handlePublicGalleryCategoriesRequest } from "./api/public-gallery-categories";
 import { handleSearchConsoleRequest } from "./api/search-console";
 import {
   handleSiteAuditLatestRequest,
@@ -137,6 +139,19 @@ export default {
       }
     }
 
+    // Unauthenticated, read-only: fetched at build time by the main site
+    // to render its category filter tabs dynamically instead of a
+    // hardcoded list. See worker/api/gallery-categories.ts for the
+    // authenticated CRUD side of this.
+    if (url.pathname === "/api/public/gallery-categories" && request.method === "GET") {
+      try {
+        return await handlePublicGalleryCategoriesRequest(env);
+      } catch (err) {
+        console.error("Public gallery categories API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
     // Unauthenticated-by-Access write endpoint for the public site's own
     // worker.js to POST/PATCH into -- guarded by a shared-secret bearer
     // token instead (see worker/types.ts CONTACT_INGEST_TOKEN). Checked
@@ -219,6 +234,21 @@ export default {
         return await handleBulkGalleryRequest(request, env, ctx);
       } catch (err) {
         console.error("Bulk gallery API error:", err);
+        return errorResponse("Internal server error", 500);
+      }
+    }
+
+    // Admin-facing category management (add/rename/delete) -- behind
+    // Cloudflare Access same as /api/gallery. Checked before the generic
+    // /api/gallery(?:/:id)? matcher purely for readability; the two
+    // paths don't actually overlap ("gallery-categories" never matches
+    // "gallery" followed by "/" or end-of-string).
+    const galleryCategoriesMatch = url.pathname.match(/^\/api\/gallery-categories(?:\/([^/]+))?\/?$/);
+    if (galleryCategoriesMatch) {
+      try {
+        return await handleGalleryCategoriesRequest(request, env, galleryCategoriesMatch[1] ?? null, ctx);
+      } catch (err) {
+        console.error("Gallery categories API error:", err);
         return errorResponse("Internal server error", 500);
       }
     }

@@ -1,4 +1,3 @@
-import type { GalleryCategory } from "../shared/gallery-categories";
 import type { GalleryImageDTO } from "../shared/gallery-image";
 import type { ContactMessageDTO, ContactMessageStatus } from "../shared/contact-messages";
 
@@ -85,7 +84,7 @@ export interface GalleryImageRow {
   r2_key: string;
   alt_text: string;
   caption: string;
-  category: GalleryCategory;
+  category: string;
   display_order: number;
   published: number; // D1/SQLite has no boolean type -- 0 or 1
   created_at: string;

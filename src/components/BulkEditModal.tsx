@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { GALLERY_CATEGORIES, type GalleryCategory } from "../../shared/gallery-categories";
+import type { GalleryCategoryDTO } from "../../shared/gallery-categories";
 import { bulkUpdateImages } from "../api/gallery";
 
 interface Props {
   count: number;
   imageIds: string[];
+  categories: GalleryCategoryDTO[];
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -16,9 +17,9 @@ interface Props {
  * matching backend-side restriction. Each field is opt-in (checkbox)
  * so leaving a field untouched here genuinely leaves it untouched on
  * every selected photo, not silently reset to some default. */
-export function BulkEditModal({ count, imageIds, onSaved, onCancel }: Props) {
+export function BulkEditModal({ count, imageIds, categories, onSaved, onCancel }: Props) {
   const [changeCategory, setChangeCategory] = useState(false);
-  const [category, setCategory] = useState<GalleryCategory>(GALLERY_CATEGORIES[0]);
+  const [category, setCategory] = useState<string>(categories[0]?.name ?? "");
   const [changePublished, setChangePublished] = useState(false);
   const [published, setPublished] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -53,10 +54,10 @@ export function BulkEditModal({ count, imageIds, onSaved, onCancel }: Props) {
         <input type="checkbox" checked={changeCategory} onChange={(e) => setChangeCategory(e.target.checked)} />
         <span>Change category to:</span>
       </label>
-      <select value={category} disabled={!changeCategory} onChange={(e) => setCategory(e.target.value as GalleryCategory)}>
-        {GALLERY_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
+      <select value={category} disabled={!changeCategory} onChange={(e) => setCategory(e.target.value)}>
+        {categories.map((c) => (
+          <option key={c.id} value={c.name}>
+            {c.name}
           </option>
         ))}
       </select>

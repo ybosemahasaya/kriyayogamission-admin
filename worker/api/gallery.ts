@@ -1,4 +1,4 @@
-import { GALLERY_CATEGORIES, isGalleryCategory } from "../../shared/gallery-categories";
+import { categoryExists } from "./gallery-categories";
 import { errorResponse, getAccessUserEmail, json } from "../lib/http";
 import { triggerSiteRebuilds } from "../lib/deploy-hook";
 import type { Env, GalleryImageRow } from "../types";
@@ -101,8 +101,8 @@ async function bulkUpdate(request: Request, env: Env, ctx: ExecutionContext): Pr
   const updates: string[] = [];
   const values: unknown[] = [];
   if (patch.category !== undefined) {
-    if (!isGalleryCategory(patch.category)) {
-      return errorResponse(`Category must be one of: ${GALLERY_CATEGORIES.join(", ")}`);
+    if (!(await categoryExists(env, patch.category))) {
+      return errorResponse(`"${patch.category}" is not a category. Check spelling, or add it first.`);
     }
     updates.push("category = ?");
     values.push(patch.category);
@@ -178,8 +178,8 @@ async function create(request: Request, env: Env, ctx: ExecutionContext): Promis
   if (file.size > MAX_UPLOAD_BYTES) {
     return errorResponse(`File too large. Max ${MAX_UPLOAD_BYTES / 1024 / 1024}MB.`);
   }
-  if (!isGalleryCategory(category)) {
-    return errorResponse(`Category must be one of: ${GALLERY_CATEGORIES.join(", ")}`);
+  if (!(await categoryExists(env, category))) {
+    return errorResponse(`"${category}" is not a category. Check spelling, or add it first.`);
   }
   if (!altText.trim()) return errorResponse("altText is required for accessibility");
 
@@ -229,8 +229,8 @@ async function update(request: Request, env: Env, id: string, ctx: ExecutionCont
     values.push(body.altText);
   }
   if (body.category !== undefined) {
-    if (!isGalleryCategory(body.category)) {
-      return errorResponse(`Category must be one of: ${GALLERY_CATEGORIES.join(", ")}`);
+    if (!(await categoryExists(env, body.category))) {
+      return errorResponse(`"${body.category}" is not a category. Check spelling, or add it first.`);
     }
     updates.push("category = ?");
     values.push(body.category);

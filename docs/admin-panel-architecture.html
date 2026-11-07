@@ -97,6 +97,10 @@
           <strong class="text-green-800">Visual redesign (2026-11-07)</strong>
           <p class="text-stone-600 mt-1">Hover-expand icon sidebar with a content-dim effect, pill-segmented tabs, a self-hosted serif accent font, and refined KPI cards -- adapted from a reference dashboard's layout/motion patterns while keeping the panel's own warm saffron/stone color identity. See "Visual design system" in the Technical Design section.</p>
         </div>
+        <div class="bg-white rounded-lg border border-green-200 p-3">
+          <strong class="text-green-800">Admin-editable gallery categories (2026-11-08)</strong>
+          <p class="text-stone-600 mt-1">Add/rename/delete categories from the Gallery page's "Manage Categories" modal -- no longer a fixed 3-item list. Propagates to kriyayogamission.org/gallery's filter tabs on the public site's next build. Rename cascades to every photo under the old name; delete is blocked while any photo still uses that category.</p>
+        </div>
       </div>
       <p class="text-green-700 leading-relaxed mt-3 text-sm">
         <strong>Still genuinely open:</strong> the <code class="bg-green-100 px-1 rounded">PROD_DEPLOY_HOOK_URL</code>
@@ -668,6 +672,56 @@
           large inline brand mark on the pre-login <code class="bg-stone-100 px-1 rounded">landing.html</code> sign-in
           page still uses that same old generic shape -- out of scope of the favicon request, not yet fixed.</li>
       </ul>
+
+      <h3 class="font-semibold text-stone-800 mb-2 mt-4">Gallery categories, made admin-editable (2026-11-07)</h3>
+      <p class="text-stone-600 leading-relaxed mb-2">
+        Resolves the "categories-fixed-or-editable" item in the Needs-Your-Decision list further down this page --
+        categories were a fixed, hardcoded 3-item list (<code class="bg-stone-100 px-1 rounded">shared/gallery-categories.ts</code>);
+        they're now a real D1 table an admin can add/rename/delete from the Gallery page, propagating to
+        <a href="https://kriyayogamission.org/gallery" class="text-saffron-600 underline">kriyayogamission.org/gallery</a>'s
+        filter tabs on the next build.
+      </p>
+      <ul class="list-disc list-inside text-stone-600 leading-relaxed space-y-1 mb-2">
+        <li><strong>New table:</strong> <code class="bg-stone-100 px-1 rounded">gallery_categories</code>
+          (<code class="bg-stone-100 px-1 rounded">migrations/0007_create_gallery_categories.sql</code>) --
+          <code class="bg-stone-100 px-1 rounded">id</code>, <code class="bg-stone-100 px-1 rounded">name</code>,
+          <code class="bg-stone-100 px-1 rounded">slug</code>, <code class="bg-stone-100 px-1 rounded">display_order</code>.
+          Seeded with the original 3 categories at their existing names/order so nothing shifts on first deploy.
+          <code class="bg-stone-100 px-1 rounded">gallery_images.category</code> still stores the category's display
+          NAME as plain text (unchanged, not a foreign key) -- every existing read/write path already assumed that
+          shape, and changing it to an id-based foreign key would have meant touching upload, edit, bulk-edit, and
+          the public feed all at once for limited benefit.</li>
+        <li><strong>Admin API:</strong> <code class="bg-stone-100 px-1 rounded">worker/api/gallery-categories.ts</code> --
+          GET/POST <code class="bg-stone-100 px-1 rounded">/api/gallery-categories</code>, PATCH/DELETE
+          <code class="bg-stone-100 px-1 rounded">/api/gallery-categories/:id</code>, behind Cloudflare Access same as
+          <code class="bg-stone-100 px-1 rounded">/api/gallery</code>. <code class="bg-stone-100 px-1 rounded">worker/api/gallery.ts</code>'s
+          upload/edit/bulk-edit routes now validate a photo's category against this table at request time instead of
+          a compile-time fixed list.</li>
+        <li><strong>Rename cascades:</strong> renaming a category updates its row AND every <code class="bg-stone-100 px-1 rounded">gallery_images</code>
+          row currently using the old name, in one D1 batch -- otherwise photos would silently end up with a category
+          name that no longer exists anywhere. The <code class="bg-stone-100 px-1 rounded">slug</code> deliberately does
+          NOT change on rename, so it stays a stable identifier for the public site's filter tabs across a rename.</li>
+        <li><strong>Delete is blocked while in use:</strong> deleting a category with 1+ photos still filed under it
+          returns a 409 with the exact count, rather than cascade-deleting those photos or silently re-bucketing them
+          into some fallback -- both felt like too-destructive a surprise for what looks like "remove an empty
+          folder." An admin has to move or delete those photos first.</li>
+        <li><strong>Public feed:</strong> new <code class="bg-stone-100 px-1 rounded">/api/public/gallery-categories</code>
+          (<code class="bg-stone-100 px-1 rounded">worker/api/public-gallery-categories.ts</code>), unauthenticated,
+          mirrors <code class="bg-stone-100 px-1 rounded">/api/public/gallery</code>'s pattern exactly. The public site's
+          <code class="bg-stone-100 px-1 rounded">Gallery.astro</code> fetches it at build time (same
+          <code class="bg-stone-100 px-1 rounded">ADMIN_GALLERY_API_URL</code> build variable already used for the
+          images feed) and builds its filter tabs from the live list instead of a hardcoded array; a hardcoded
+          3-category fallback (matching today's exact tabs) is used if the fetch fails or that variable isn't set,
+          so a down admin Worker degrades to exactly what the page already looked like rather than breaking the
+          build. Verified end-to-end in local dev: created a 4th category via the admin API, rebuilt the public site
+          against the local admin dev server, and confirmed a live 4th filter tab appeared on the built page.</li>
+        <li><strong>Admin UI:</strong> a new "Manage Categories" button on the Gallery page opens a modal
+          (<code class="bg-stone-100 px-1 rounded">src/components/gallery/ManageCategoriesModal.tsx</code>) listing
+          every category with inline rename and delete, plus an add-category form. The category dropdown used by
+          Add Photo / Edit Photo / Bulk Edit now all pull from this same live list
+          (<code class="bg-stone-100 px-1 rounded">src/api/gallery-categories.ts</code>) instead of the old fixed
+          import.</li>
+      </ul>
     </section>
 
     <section class="bg-white rounded-2xl border-2 shadow-sm p-6" style="border-color:#86efac;">
@@ -700,6 +754,7 @@
         <li><strong>Add Photo</strong> opens a modal supporting multi-file upload with a category picker, per-file caption/alt text (with quick-fill to copy one caption/alt-text across a whole batch), and an image preview; the modal closes immediately and upload progress continues in a persistent bottom panel, with the grid refreshing photo-by-photo as each upload settles</li>
         <li>Each photo card supports inline <strong>Edit</strong> (caption/alt/category/order/published) and <strong>Delete</strong>, plus a selection checkbox</li>
         <li><strong>Bulk action bar</strong> appears once 1+ photos are selected: bulk edit (shared category/published-state change) or bulk delete with a confirmation prompt</li>
+        <li><strong>Manage Categories</strong> (added 2026-11-08): a toolbar button opens a modal to add, rename, or delete gallery categories -- no longer a fixed 3-item list. Renaming relabels every photo already filed under the old name; deleting is blocked while any photo still uses that category. Changes reach <a href="https://kriyayogamission.org/gallery" class="text-saffron-600 underline">kriyayogamission.org/gallery</a>'s filter tabs on the public site's next build, same as any other gallery change.</li>
       </ul>
 
       <h3 class="font-semibold text-stone-800 mb-1">Contact Messages page (added 2026-11-07)</h3>
@@ -925,9 +980,9 @@ const decisionItems = [
   },
   {
     id: "categories-fixed-or-editable",
-    title: "Should the 3 gallery categories stay fixed, or become admin-editable themselves?",
+    title: "RESOLVED 2026-11-08: gallery categories are now admin-editable, not fixed",
     path: "D1 schema design",
-    detail: "Fixed (Gurudev / Kriya Yoga Mission / Guru Purnima 2026) is simpler for Phase 1 and matches what exists today. Making categories themselves creatable/renamable is a reasonable Phase 2 addition once the core upload flow is proven out."
+    detail: "Built as a real gallery_categories D1 table with full add/rename/delete from the admin panel's Gallery page, propagating to the public site's filter tabs on its next build. See 'Gallery categories, made admin-editable' in the Technical Design section above for the full implementation."
   },
   {
     id: "admin-domain-choice",

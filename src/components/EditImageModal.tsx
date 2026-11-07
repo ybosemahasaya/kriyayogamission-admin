@@ -1,17 +1,18 @@
 import { useState } from "react";
-import { GALLERY_CATEGORIES, type GalleryCategory } from "../../shared/gallery-categories";
+import type { GalleryCategoryDTO } from "../../shared/gallery-categories";
 import type { GalleryImageDTO } from "../../shared/gallery-image";
 import { updateImage } from "../api/gallery";
 
 interface Props {
   image: GalleryImageDTO;
+  categories: GalleryCategoryDTO[];
   onSaved: () => void;
 }
 
-export function EditImageModal({ image, onSaved }: Props) {
+export function EditImageModal({ image, categories, onSaved }: Props) {
   const [caption, setCaption] = useState(image.caption);
   const [altText, setAltText] = useState(image.altText);
-  const [category, setCategory] = useState<GalleryCategory>(image.category);
+  const [category, setCategory] = useState<string>(image.category);
   const [published, setPublished] = useState(image.published);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +37,10 @@ export function EditImageModal({ image, onSaved }: Props) {
 
       <label className="field">
         <span>Category</span>
-        <select value={category} onChange={(e) => setCategory(e.target.value as GalleryCategory)}>
-          {GALLERY_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name}
             </option>
           ))}
         </select>

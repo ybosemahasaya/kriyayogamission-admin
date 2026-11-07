@@ -1,4 +1,3 @@
-import type { GalleryCategory } from "../../shared/gallery-categories";
 import type { GalleryImageDTO } from "../../shared/gallery-image";
 
 const BASE = "/api/gallery";
@@ -15,7 +14,7 @@ export function listImages(): Promise<GalleryImageDTO[]> {
 
 export interface UploadImageInput {
   file: File;
-  category: GalleryCategory;
+  category: string;
   caption: string;
   altText: string;
 }

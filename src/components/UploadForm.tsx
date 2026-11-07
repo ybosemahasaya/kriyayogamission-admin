@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { GALLERY_CATEGORIES, type GalleryCategory } from "../../shared/gallery-categories";
+import type { GalleryCategoryDTO } from "../../shared/gallery-categories";
 import type { QueuedUpload } from "../hooks/useUploadQueue";
 import { TrashIcon } from "./icons";
 
 interface Props {
+  categories: GalleryCategoryDTO[];
   /** Hands the whole batch off to the app-level upload queue and expects
    * the caller to close this modal right away -- actual upload progress
    * then shows in UploadProgressPanel on the main page instead of here. */
@@ -32,8 +33,8 @@ function toPendingFile(file: File): PendingFile {
  * a category" -- but caption/alt text stay per-photo since they describe
  * one specific image each. Alt text is still required per-photo for
  * accessibility; there's no safe generic default to fall back to. */
-export function UploadForm({ onStartUpload }: Props) {
-  const [category, setCategory] = useState<GalleryCategory>(GALLERY_CATEGORIES[0]);
+export function UploadForm({ categories, onStartUpload }: Props) {
+  const [category, setCategory] = useState<string>(categories[0]?.name ?? "");
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [quickCaption, setQuickCaption] = useState("");
   const [quickAltText, setQuickAltText] = useState("");
@@ -83,10 +84,10 @@ export function UploadForm({ onStartUpload }: Props) {
     <form className="modal-form" onSubmit={handleSubmit}>
       <label className="field">
         <span>Category (applies to all photos in this batch)</span>
-        <select value={category} onChange={(e) => setCategory(e.target.value as GalleryCategory)}>
-          {GALLERY_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name}
             </option>
           ))}
         </select>

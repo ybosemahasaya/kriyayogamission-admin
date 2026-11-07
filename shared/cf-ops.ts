@@ -21,3 +21,24 @@ export interface SslCertificateStatusDTO {
 export interface CachePurgeResultDTO {
   purgedAt: string;
 }
+
+export interface DnsRecordDTO {
+  id: string;
+  type: string;
+  name: string;
+  content: string;
+  ttl: number;
+  proxied: boolean;
+}
+
+/** "Who logged into the Access-gated admin panel, and when" -- read-only,
+ * from Cloudflare Access's own audit log of authentication requests.
+ * Directly matches the "audit-log" item already in
+ * docs/admin-panel-architecture.html's roadmap ("who changed what, when"
+ * -- this covers the login side of that, not in-app changes). */
+export interface AccessLoginEventDTO {
+  email: string;
+  allowed: boolean;
+  ipAddress: string | null;
+  createdAt: string;
+}

@@ -159,6 +159,35 @@ deliberately separate from the rest of Edge Analytics.
    paste the exact message and the SQL gets a quick fix, same pattern
    as every other query in this project.
 
+### Worker Logs (Cloudflare Workers Logs/Observability, NOT Logpush)
+
+A THIRD distinct Cloudflare product in this project -- not Cloudflare's
+edge logs (Edge Analytics), not custom app metrics (Admin API
+observability above), but Cloudflare's own built-in invocation/error
+metrics for Worker scripts, available on every plan including Free
+(unlike Logpush, which needs Business/Enterprise and an external
+destination -- deliberately not built, see
+`docs/admin-panel-architecture.html`). Covers THREE Workers: this admin
+panel, plus the public site's production and dev deployments -- reading
+the public site's data needs zero changes to that repo, see
+`shared/worker-logs.ts`.
+
+1. Add **Workers Observability: Read** to the SAME Account-scoped
+   policy row used for Access audit logs and Account Analytics (same
+   account resource, one more permission, no new row).
+2. No new secret, no new var -- reuses `CLOUDFLARE_ACCOUNT_ID`/
+   `CLOUDFLARE_API_TOKEN`. Just deploy.
+3. **Honest caveat, bigger than usual here:** the exact GraphQL field
+   names for the account-level `workersInvocationsAdaptiveGroups`
+   dataset (`worker/api/worker-logs.ts`) were NOT verified against a
+   live account before shipping -- this part of Cloudflare's schema is
+   less publicly documented than the zone-level analytics used
+   elsewhere in this project. If a tab on the "Worker Logs" page
+   errors, paste the exact message -- it'll likely need either a field
+   rename or a different permission (try **Account Analytics: Read**,
+   already granted above, if "Workers Observability: Read" alone
+   doesn't resolve it).
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

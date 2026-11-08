@@ -159,34 +159,52 @@ deliberately separate from the rest of Edge Analytics.
    paste the exact message and the SQL gets a quick fix, same pattern
    as every other query in this project.
 
-### Worker Logs (Cloudflare Workers Logs/Observability, NOT Logpush)
+### Worker Logs (page views + contact funnel for the public site, API health for this admin panel)
 
-A THIRD distinct Cloudflare product in this project -- not Cloudflare's
-edge logs (Edge Analytics), not custom app metrics (Admin API
-observability above), but Cloudflare's own built-in invocation/error
-metrics for Worker scripts, available on every plan including Free
-(unlike Logpush, which needs Business/Enterprise and an external
-destination -- deliberately not built, see
-`docs/admin-panel-architecture.html`). Covers THREE Workers: this admin
-panel, plus the public site's production and dev deployments -- reading
-the public site's data needs zero changes to that repo, see
-`shared/worker-logs.ts`.
+Three tabs under one "Worker Logs" sidebar page, each reading a
+different data source -- see `shared/worker-logs.ts` for the full story
+of how this ended up here:
 
-1. Add **Workers Observability: Read** to the SAME Account-scoped
-   policy row used for Access audit logs and Account Analytics (same
-   account resource, one more permission, no new row).
+- **Admin Panel** tab: just reuses the existing Admin API observability
+  section above, unchanged. No separate setup.
+- **Public Site (Production)** / **Public Site (Dev)** tabs: read the
+  public site's OWN Analytics Engine data -- page views
+  (`kym_site_traffic`) and contact-form funnel outcomes
+  (`kym_contact_funnel`) -- split by hostname into the two tabs.
+
+**Why not Cloudflare's built-in Workers Logs/Observability?** That was
+the original plan, and it's a real, free, built-in Cloudflare feature --
+but after three rounds of live schema introspection, this account's
+only reachable Workers-invocations GraphQL dataset
+(`workersInvocationsByOwnerAndScriptGroups`) turned out to have **no
+scriptName filter or dimension at all**, confirmed via introspection,
+not a guess. It cannot distinguish one Worker's traffic from another's
+at the account level, which the entire "one tab per Worker" design
+depends on. Dead end, not fixable with a different field name.
+
+**What's actually live now:** the public site's `worker.js` was given
+real `writeDataPoint()` calls (added directly to that repo, with
+explicit sign-off, since it's a separate restricted repo -- this admin
+panel repo was never the blocker). This admin panel reads that data via
+the exact same Analytics Engine SQL API client already proven working
+for the Admin API observability widget above -- just pointed at two
+different dataset names.
+
+Setup:
+
+1. No new permission needed -- reuses **Account Analytics: Read**,
+   already granted for Admin API observability above.
 2. No new secret, no new var -- reuses `CLOUDFLARE_ACCOUNT_ID`/
-   `CLOUDFLARE_API_TOKEN`. Just deploy.
-3. **Honest caveat, bigger than usual here:** the exact GraphQL field
-   names for the account-level `workersInvocationsAdaptiveGroups`
-   dataset (`worker/api/worker-logs.ts`) were NOT verified against a
-   live account before shipping -- this part of Cloudflare's schema is
-   less publicly documented than the zone-level analytics used
-   elsewhere in this project. If a tab on the "Worker Logs" page
-   errors, paste the exact message -- it'll likely need either a field
-   rename or a different permission (try **Account Analytics: Read**,
-   already granted above, if "Workers Observability: Read" alone
-   doesn't resolve it).
+   `CLOUDFLARE_API_TOKEN`.
+3. The public site's own deploy (separate repo) needs to be live with
+   the `TRAFFIC_ANALYTICS`/`CONTACT_ANALYTICS` bindings and the
+   matching `writeDataPoint()` calls in `worker.js` for either Public
+   Site tab to show real data. Until then, both tabs will just show
+   zeros/empty tables -- not an error, just no data written yet.
+4. **Honest caveat:** same as every other Analytics Engine query in
+   this project -- Cloudflare's SQL dialect isn't formally documented,
+   and this is the first time these particular two datasets have been
+   queried. If a Public Site tab errors, paste the exact message.
 
 ## Branch strategy
 

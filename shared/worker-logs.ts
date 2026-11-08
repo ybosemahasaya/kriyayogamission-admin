@@ -1,24 +1,21 @@
-/** DTOs for the "Worker Logs" page -- Cloudflare Workers Logs/
- * Observability (the built-in, every-plan-including-Free feature),
- * NOT Logpush (external export to R2/S3/Datadog/etc., which needs
- * Business/Enterprise and an external destination -- not worth building
- * for this project; see docs/admin-panel-architecture.html).
+/** DTOs for the "Worker Logs" page's two Public Site tabs.
  *
- * Reads via the SAME Cloudflare GraphQL Analytics API already used by
- * shared/edge-analytics.ts (worker/lib/cf-graphql-client.ts), just
- * pointed at the account-level `workersInvocationsAdaptiveGroups`
- * dataset instead of a zone-level one -- this is account-scoped because
- * Worker invocation metrics aren't tied to a DNS zone the way HTTP/
- * firewall events are.
+ * Saga so far (see worker/api/worker-logs.ts for the full story): this
+ * started as Cloudflare's built-in Workers Logs/Observability, then a
+ * GraphQL dataset guess that didn't exist, then a confirmed-real
+ * GraphQL dataset that turned out to have no per-script filter or
+ * dimension at all (schema introspection proved it, not a guess) --
+ * making it structurally unable to tell three Workers apart. The
+ * working answer: the public site's OWN Worker now writes its own
+ * Analytics Engine data (added directly to that repo, with explicit
+ * sign-off -- see worker.js there), which this admin panel reads via
+ * the exact same Analytics Engine SQL API client already proven
+ * working for the Admin Panel's own metrics (worker/lib/api-metrics.ts).
  *
- * Covers THREE separate Cloudflare Workers under one account -- this
- * admin panel's own Worker, plus the public site's production AND dev
- * deployments (confirmed against kriyayoga/DEPLOYMENT.md: two separate
- * Workers projects, "kriyayogamission" and "kriyayogamission-dev", both
- * built from the same repo/worker.js). Reading their invocation metrics
- * via this account-level API needs ZERO changes to that repo -- it's
- * read-only querying of data Cloudflare already collects, the same
- * "never touch the public site's repo" compliance as Edge Analytics.
+ * The "Admin Panel" tab needs NO new DTO here -- it just renders the
+ * existing ApiObservabilitySection component (shared/api-observability.ts),
+ * since that data source already works perfectly. Only Production/Dev
+ * need this page's own backend call.
  */
 
 export const WORKER_TARGETS = [
@@ -29,19 +26,35 @@ export const WORKER_TARGETS = [
 
 export type WorkerTargetKey = (typeof WORKER_TARGETS)[number]["key"];
 
-export interface WorkerStatusCount {
-  /** Cloudflare's own outcome strings, e.g. "success", "exception",
-   * "exceededCpu", "canceled" -- passed through verbatim, same
-   * reasoning as SslCertificateStatusDTO.status. */
-  status: string;
-  requests: number;
+/** The two tabs backed by worker/api/worker-logs.ts -- excludes "admin",
+ * which renders ApiObservabilitySection directly on the frontend
+ * instead of calling this page's API at all. */
+export type PublicSiteTargetKey = Exclude<WorkerTargetKey, "admin">;
+
+export interface PublicSitePathViews {
+  path: string;
+  views: number;
 }
 
-export interface WorkerLogSummaryDTO {
-  scriptName: string;
+export interface PublicSiteDailyPoint {
+  date: string;
+  views: number;
+}
+
+export interface ContactFunnelOutcome {
+  /** Matches the literal outcome strings worker.js writes:
+   * "success" | "validation_failed" | "bot_caught" |
+   * "resend_network_error" | "resend_api_error" | "bad_request". */
+  outcome: string;
+  count: number;
+}
+
+export interface PublicSiteLogsSummaryDTO {
   label: string;
-  totalRequests: number;
-  totalErrors: number;
-  avgCpuTimeMs: number;
-  byStatus: WorkerStatusCount[];
+  totalPageViews: number;
+  avgLatencyMs: number;
+  byPath: PublicSitePathViews[];
+  daily: PublicSiteDailyPoint[];
+  contactFunnel: ContactFunnelOutcome[];
+  totalContactSubmissions: number;
 }

@@ -1,19 +1,20 @@
 import { useState } from "react";
-import { WORKER_TARGETS, type WorkerTargetKey } from "../../shared/worker-logs";
+import { WORKER_TARGETS, type WorkerTargetKey, type PublicSiteTargetKey } from "../../shared/worker-logs";
+import { ApiObservabilitySection } from "./edge-analytics/ApiObservabilitySection";
 import { useWorkerLogs } from "../hooks/useWorkerLogs";
 import { formatNumber } from "../lib/format";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
+import type { Theme } from "../hooks/useTheme";
 
-/** Cloudflare Workers Logs/Observability (built-in, every plan
- * including Free) -- NOT Logpush (external export, needs Business/
- * Enterprise + a destination, not built here, see
- * docs/admin-panel-architecture.html). One tab per actual deployed
- * Worker under this account -- see shared/worker-logs.ts for why
- * reading the public site's two Workers needs zero changes to that
- * repo. */
-export function WorkerLogsPage() {
+/** Three tabs, three different data sources -- see shared/worker-logs.ts
+ * for the full saga of why. Admin Panel reuses the existing, already-
+ * working ApiObservabilitySection as-is. Production/Dev hit this page's
+ * own API, which reads the public site's own Analytics Engine data
+ * (page views + contact-form funnel), since Cloudflare's built-in
+ * Workers invocation stats turned out unable to distinguish one script
+ * from another at the account level. */
+export function WorkerLogsPage({ theme }: { theme: Theme }) {
   const [activeKey, setActiveKey] = useState<WorkerTargetKey>(WORKER_TARGETS[0].key);
-  const { data, loading, error, notConfigured } = useWorkerLogs(activeKey);
 
   return (
     <div className="analytics-page">
@@ -30,11 +31,24 @@ export function WorkerLogsPage() {
         ))}
       </div>
 
+      {activeKey === "admin" ? (
+        <ApiObservabilitySection theme={theme} />
+      ) : (
+        <PublicSiteTab key={activeKey} targetKey={activeKey} />
+      )}
+    </div>
+  );
+}
+
+function PublicSiteTab({ targetKey }: { targetKey: PublicSiteTargetKey }) {
+  const { data, loading, error, notConfigured } = useWorkerLogs(targetKey);
+
+  return (
+    <>
       {notConfigured && (
         <p className="empty-state">
           Worker Logs isn't connected yet -- add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to this Worker's
-          config/secrets to enable this page. Ask Rio for the step-by-step Cloudflare setup if you haven't done it
-          yet.
+          config/secrets to enable this page.
         </p>
       )}
       {loading && !notConfigured && <p className="empty-state">Loading Worker logs...</p>}
@@ -44,26 +58,32 @@ export function WorkerLogsPage() {
         <>
           <div className="analytics-kpi-grid">
             <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Requests (7d)</span>
-              <span className="analytics-kpi-value">{formatNumber(data.totalRequests)}</span>
+              <span className="analytics-kpi-label">Page views (7d)</span>
+              <span className="analytics-kpi-value">{formatNumber(data.totalPageViews)}</span>
             </div>
             <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Errors (7d)</span>
-              <span className="analytics-kpi-value">{formatNumber(data.totalErrors)}</span>
+              <span className="analytics-kpi-label">Avg response time</span>
+              <span className="analytics-kpi-value">{data.avgLatencyMs}ms</span>
             </div>
             <div className="analytics-kpi-card">
-              <span className="analytics-kpi-label">Avg CPU time</span>
-              <span className="analytics-kpi-value">{data.avgCpuTimeMs}ms</span>
+              <span className="analytics-kpi-label">Contact submissions (30d)</span>
+              <span className="analytics-kpi-value">{formatNumber(data.totalContactSubmissions)}</span>
             </div>
           </div>
 
           <AnalyticsTable
-            title={`${data.label} -- invocation outcomes (7d)`}
-            columns={["Status", "Requests"]}
-            rows={data.byStatus.map((s) => [s.status, formatNumber(s.requests)])}
+            title="Top pages (7d)"
+            columns={["Path", "Views"]}
+            rows={data.byPath.map((p) => [p.path, formatNumber(p.views)])}
+          />
+
+          <AnalyticsTable
+            title="Contact form funnel (30d)"
+            columns={["Outcome", "Count"]}
+            rows={data.contactFunnel.map((o) => [o.outcome, formatNumber(o.count)])}
           />
         </>
       )}
-    </div>
+    </>
   );
 }

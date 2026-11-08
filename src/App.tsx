@@ -161,11 +161,11 @@ function App() {
             <header className="main-header">
               <h1>Worker Logs</h1>
               <p>
-                Built-in Cloudflare Workers Logs (not Logpush) for all three Workers under this account -- this
-                admin panel plus the public site's production and dev deployments.
+                Admin Panel API health, plus the public site's own page-view and contact-funnel metrics --
+                production and dev, each in their own tab.
               </p>
             </header>
-            <WorkerLogsPage />
+            <WorkerLogsPage theme={theme} />
           </>
         ) : view === "site-audit" ? (
           <>

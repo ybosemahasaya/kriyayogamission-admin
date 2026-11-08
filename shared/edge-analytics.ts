@@ -49,20 +49,40 @@ export interface FirewallCountryCount {
   count: number;
 }
 
+/** Which Cloudflare protection mechanism handled the request --
+ * "botFight" (free Bot Fight Mode), "waf" (managed WAF rules),
+ * "linkMaze" (anti-scraper honeypot links), "rateLimit", etc. This is
+ * the actual zone-specific threat-intel signal: not just "how many
+ * threats" but "what kind, stopped by what." */
+export interface FirewallSourceCount {
+  source: string;
+  count: number;
+}
+
 export interface EdgeAnalyticsDTO {
   range: EdgeAnalyticsRange;
   summary: EdgeAnalyticsSummary;
   daily: EdgeAnalyticsDailyPoint[];
   /** Breakdown of WAF/firewall events by the action Cloudflare took
-   * (block, challenge, managed_challenge, log, skip, etc.). */
+   * (block, challenge, managed_challenge, log, skip, etc.). Computed
+   * client-side in the Worker from a raw firewallEventsAdaptive sample
+   * -- see worker/api/edge-analytics.ts for why: the server-side GROUP
+   * BY variant (firewallEventsAdaptiveGroups) turned out to be blocked
+   * on this zone's Free plan even though the raw/ungrouped dataset
+   * isn't, confirmed live 2026-11-08. */
   firewallActions: FirewallActionCount[];
   firewallTopPaths: FirewallPathCount[];
   firewallTopCountries: FirewallCountryCount[];
-  /** Non-null when the firewallEventsAdaptiveGroups query failed on its
-   * own (e.g. dataset unavailable on this zone's plan, or the token
-   * lacks a permission the httpRequests1dGroups query didn't need) --
-   * surfaced verbatim so the cause is visible instead of blanking the
-   * entire page over one dataset. The core KPIs/chart above still load
-   * fine when this is set. */
+  firewallBySource: FirewallSourceCount[];
+  /** How many raw events the above breakdown was computed from -- an
+   * "Adaptive" dataset is sampled, not exhaustive, so this number is
+   * the honest caveat that belongs next to any firewall count: fine for
+   * "what's trending," not a compliance-grade total. */
+  firewallSampleSize: number;
+  /** Non-null when the firewallEventsAdaptive query failed on its own
+   * (token permission, transient API error, etc.) -- surfaced verbatim
+   * so the cause is visible instead of blanking the entire page over
+   * one dataset. The core KPIs/chart above still load fine when this is
+   * set. */
   firewallError: string | null;
 }

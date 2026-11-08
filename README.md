@@ -306,21 +306,25 @@ Cloudflare." Verdict, and what actually shipped:
   as separate Edge Analytics widgets; the new `SecurityOverviewPanel`
   on the Dashboard just presents them together in the panel-grid style,
   reusing the exact same hooks/DTOs rather than duplicating them.
-- **The WAF/firewall action breakdown -- the closest thing to real
-  "DDoS stats" for this specific zone** -- depends on Cloudflare's
-  `firewallEventsAdaptiveGroups` GraphQL dataset. There's a genuine,
-  unresolved discrepancy here: Cloudflare's current docs say Free-plan
-  zones get a sampled version of this data, but a live test against
-  this exact zone previously returned "zone does not have access to the
-  path." Rather than guess, the panel reuses `useEdgeAnalytics`'s
-  existing graceful degradation (`data.firewallError`) -- it shows the
-  full breakdown (actions/paths/countries) if Cloudflare ever does
-  return it, and a clear explanation if not, live, without needing a
-  code change either way.
-- A temporary diagnostic, `GET /api/edge-analytics/_debug-firewall`,
-  tests the RAW (non-grouped) `firewallEventsAdaptive` field as a
-  separate data point in that investigation -- safe to delete once
-  settled either way.
+- **The WAF/firewall action+source breakdown -- the closest thing to
+  real "DDoS stats" for this specific zone** -- RESOLVED, not just
+  reported. Cloudflare's `firewallEventsAdaptiveGroups` (the
+  server-side GROUP BY variant) returns "zone does not have access to
+  the path" on this Free-plan zone, confirmed live. But the RAW
+  (non-grouped) `firewallEventsAdaptive` field works fine, also
+  confirmed live -- real bot-fight-mode challenges and other events came
+  back. Fix: `worker/api/edge-analytics.ts` now fetches up to 500 raw
+  events per request and counts action/path/country/**source** itself
+  (`topCounts()`), instead of asking Cloudflare to group them
+  server-side. Same end-user result, one extra step. `source` is a
+  genuinely new, useful signal this unlocked -- it's WHICH protection
+  mechanism handled each event (`botFight` = free Bot Fight Mode,
+  `waf` = managed WAF rules, `linkMaze` = anti-scraper honeypot links,
+  etc.), real zone-specific threat intel, not just a generic count.
+- `firewallError`/the empty-state message are kept as a genuine
+  fallback for real failures (token issues, transient API errors) --
+  not a permanent "your plan doesn't support this" message anymore,
+  since that turned out to be wrong for the raw dataset.
 
 ## Branch strategy
 

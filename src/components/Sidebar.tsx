@@ -70,15 +70,17 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
       </div>
 
       <nav className="sidebar-nav">
-        <span className="sidebar-nav-label sidebar-label">Content</span>
+        <span className="sidebar-nav-label sidebar-label">Overview</span>
         <button
           type="button"
-          className={activeView === "gallery" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-          onClick={(e) => handleNavigate("gallery", e)}
+          className={activeView === "dashboard" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={(e) => handleNavigate("dashboard", e)}
         >
-          <ImageIcon />
-          <span className="sidebar-label">Gallery</span>
+          <LayoutGridIcon />
+          <span className="sidebar-label">Dashboard</span>
         </button>
+
+        <span className="sidebar-nav-label sidebar-label">Content</span>
         <button
           type="button"
           className={activeView === "contact-messages" ? "sidebar-nav-item active" : "sidebar-nav-item"}
@@ -86,6 +88,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <MailIcon />
           <span className="sidebar-label">Contact Messages</span>
+        </button>
+        <button
+          type="button"
+          className={activeView === "gallery" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={(e) => handleNavigate("gallery", e)}
+        >
+          <ImageIcon />
+          <span className="sidebar-label">Gallery</span>
         </button>
 
         <span className="sidebar-nav-label sidebar-label">Analytics</span>
@@ -120,14 +130,6 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <TerminalIcon />
           <span className="sidebar-label">Worker Logs</span>
-        </button>
-        <button
-          type="button"
-          className={activeView === "dashboard" ? "sidebar-nav-item active" : "sidebar-nav-item"}
-          onClick={(e) => handleNavigate("dashboard", e)}
-        >
-          <LayoutGridIcon />
-          <span className="sidebar-label">Dashboard</span>
         </button>
 
         <span className="sidebar-nav-label sidebar-label">Resources</span>

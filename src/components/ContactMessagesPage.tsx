@@ -15,11 +15,17 @@ import { ContactMessageDetailPane } from "./contact-messages/ContactMessageDetai
 import { ContactMessageListItem } from "./contact-messages/ContactMessageListItem";
 import { EmailMetricsCard } from "./contact-messages/EmailMetricsCard";
 import { groupByRecency } from "./contact-messages/group-by-recency";
-import { STATUS_LABELS, STATUS_ORDER } from "./contact-messages/status-labels";
+import { SPAM_STATUS_ORDER, STATUS_LABELS, STATUS_ORDER } from "./contact-messages/status-labels";
 
 type TabFilter = ContactMessageStatus | "all" | "contacts";
 
-const EMPTY_COUNTS: ContactMessageStatusCounts = { new: 0, read: 0, replied: 0 };
+const EMPTY_COUNTS: ContactMessageStatusCounts = {
+  new: 0,
+  read: 0,
+  replied: 0,
+  spam_turnstile: 0,
+  spam_akismet: 0,
+};
 
 /** Closes the gap described in docs/admin-panel-architecture.html's
  * "contact-form-log" roadmap item: the public site's /api/contact route
@@ -180,6 +186,18 @@ export function ContactMessagesPage() {
         >
           Contacts <span className="tab-count">{contacts.length}</span>
         </button>
+        <span className="tabs-group-divider" aria-hidden="true" />
+        <span className="tabs-group-label">Spam</span>
+        {SPAM_STATUS_ORDER.map((status) => (
+          <button
+            key={status}
+            type="button"
+            className={tab === status ? "tab tab-spam active" : "tab tab-spam"}
+            onClick={() => setTab(status)}
+          >
+            {STATUS_LABELS[status]} <span className="tab-count">{counts[status]}</span>
+          </button>
+        ))}
       </div>
 
       {tab === "contacts" ? (

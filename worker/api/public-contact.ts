@@ -69,15 +69,22 @@ async function create(request: Request, env: Env): Promise<Response> {
   const sourceIp = body?.sourceIp || request.headers.get("CF-Connecting-IP");
   const now = new Date().toISOString();
 
+  // spamReason (set only by the two blocked-submission call sites in the
+  // public site's worker.js) maps 1:1 onto a status value -- see
+  // shared/contact-messages.ts's CreateContactMessageRequest comment for
+  // why this is a reason, not a raw status, in the public contract.
+  const status =
+    body?.spamReason === "turnstile" ? "spam_turnstile" : body?.spamReason === "akismet" ? "spam_akismet" : "new";
+
   // Written with email_sent=0 up front -- this row is the durable record
   // regardless of whether the caller's own Resend call (made separately,
   // before or after this request) succeeds. See migrations/0004.
   await env.DB!.prepare(
     `INSERT INTO contact_messages
       (id, name, email, phone, address, message, status, email_sent, resend_message_id, source_ip, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'new', 0, NULL, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`,
   )
-    .bind(id, name, email, phone, address, message, sourceIp, now)
+    .bind(id, name, email, phone, address, message, status, sourceIp, now)
     .run();
 
   return json({ id }, { status: 201 });

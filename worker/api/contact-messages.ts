@@ -78,7 +78,12 @@ async function listAll(request: Request, env: Env): Promise<Response> {
   const { results: countRows } = await env.DB!.prepare(
     "SELECT status, COUNT(*) AS n FROM contact_messages GROUP BY status",
   ).all<{ status: string; n: number }>();
-  const counts: ContactMessageStatusCounts = { new: 0, read: 0, replied: 0 };
+  // Built from CONTACT_MESSAGE_STATUSES (not a hardcoded literal) so
+  // every valid status -- including spam_turnstile/spam_akismet -- always
+  // has a zeroed entry even with no rows yet, same reasoning as every
+  // other "start zeroed, fill in what's actually there" counts object in
+  // this codebase.
+  const counts = Object.fromEntries(CONTACT_MESSAGE_STATUSES.map((s) => [s, 0])) as ContactMessageStatusCounts;
   for (const row of countRows) {
     if (isContactMessageStatus(row.status)) counts[row.status] = row.n;
   }

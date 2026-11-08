@@ -1,6 +1,7 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
 import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest, handleZarazConfigRequest } from "./api/cf-ops";
 import { handleApiObservabilityRequest } from "./api/api-observability";
+import { handleWorkerLogsRequest } from "./api/worker-logs";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
@@ -166,6 +167,17 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
         return await handleApiObservabilityRequest(env);
       } catch (err) {
         console.error("API observability error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    const workerLogsMatch = url.pathname.match(/^\/api\/worker-logs\/([^/]+)$/);
+    if (workerLogsMatch && request.method === "GET") {
+      try {
+        return await handleWorkerLogsRequest(env, workerLogsMatch[1]);
+      } catch (err) {
+        console.error("Worker logs API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

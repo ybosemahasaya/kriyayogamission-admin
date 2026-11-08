@@ -10,6 +10,7 @@ import {
   SearchIcon,
   ShieldCheckIcon,
   SunIcon,
+  TerminalIcon,
 } from "./icons";
 
 export type SidebarView =
@@ -19,6 +20,7 @@ export type SidebarView =
   | "ga4"
   | "search-console"
   | "edge-analytics"
+  | "worker-logs"
   | "site-audit";
 
 interface Props {
@@ -108,6 +110,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <GlobeIcon />
           <span className="sidebar-label">Edge Analytics</span>
+        </button>
+        <button
+          type="button"
+          className={activeView === "worker-logs" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={(e) => handleNavigate("worker-logs", e)}
+        >
+          <TerminalIcon />
+          <span className="sidebar-label">Worker Logs</span>
         </button>
 
         <span className="sidebar-nav-label sidebar-label">Resources</span>

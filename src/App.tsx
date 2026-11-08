@@ -17,6 +17,7 @@ import { Sidebar, type SidebarView } from "./components/Sidebar";
 import { SiteAuditPage } from "./components/SiteAuditPage";
 import { UploadForm } from "./components/UploadForm";
 import { UploadProgressPanel } from "./components/UploadProgressPanel";
+import { WorkerLogsPage } from "./components/WorkerLogsPage";
 import { PlusIcon, SearchIcon, SettingsIcon } from "./components/icons";
 import { useTheme } from "./hooks/useTheme";
 import { useUploadQueue, type QueuedUpload } from "./hooks/useUploadQueue";
@@ -154,6 +155,17 @@ function App() {
               </p>
             </header>
             <EdgeAnalyticsPage theme={theme} />
+          </>
+        ) : view === "worker-logs" ? (
+          <>
+            <header className="main-header">
+              <h1>Worker Logs</h1>
+              <p>
+                Built-in Cloudflare Workers Logs (not Logpush) for all three Workers under this account -- this
+                admin panel plus the public site's production and dev deployments.
+              </p>
+            </header>
+            <WorkerLogsPage />
           </>
         ) : view === "site-audit" ? (
           <>

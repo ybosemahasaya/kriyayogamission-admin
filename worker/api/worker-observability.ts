@@ -57,8 +57,14 @@ function defaultQueryBody() {
     // Any string is fine here now that `parameters` is present -- this
     // is an ad-hoc query, not a reference to a saved one.
     queryId: "admin-panel-ad-hoc-test",
-    timeframe: { from: now - 60 * 60 * 1000, to: now },
-    view: "traces",
+    // Round 5: view=traces (distributed trace summaries) succeeded but
+    // came back empty for a 1-hour window -- likely because a simple
+    // static-asset Worker rarely produces multi-span traces. Switched
+    // to view=events (individual request/log entries, what we actually
+    // need for exceptions) and widened to 7 days to maximize the
+    // chance of seeing real data on this round.
+    timeframe: { from: now - 7 * 24 * 60 * 60 * 1000, to: now },
+    view: "events",
     limit: 10,
     parameters: {
       datasets: [],

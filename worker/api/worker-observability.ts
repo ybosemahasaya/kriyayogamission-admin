@@ -1,4 +1,3 @@
-import { cfApiRequest } from "../lib/cf-rest-client";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
 
@@ -50,16 +49,34 @@ export async function handleObservabilityDebugRequest(env: Env, rawBody: string 
 
   const path = OBSERVABILITY_QUERY_PATH(env.CLOUDFLARE_ACCOUNT_ID);
 
+  // Deliberately NOT using worker/lib/cf-rest-client.ts's cfApiRequest
+  // here -- its envelope parsing (expects Cloudflare's standard
+  // {success, errors, result} shape) swallowed the real error on the
+  // first attempt, surfacing only a useless generic "400 Bad Request"
+  // with none of Cloudflare's actual explanation. This fetches raw and
+  // always returns the full response text verbatim, parsed as JSON only
+  // if that succeeds, so nothing Cloudflare actually says gets lost.
+  const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const rawText = await res.text();
+  let parsed: unknown = rawText;
   try {
-    const result = await cfApiRequest(env.CLOUDFLARE_API_TOKEN, path, {
-      method: "POST",
-      body: JSON.stringify(requestBody),
-    });
-    return json({ path, requestBody, result });
-  } catch (err) {
-    // Cloudflare's own validation error message is the whole point of
-    // this round-trip -- it usually names the field it expected, which
-    // is how the request shape gets corrected without guessing blind.
-    return json({ path, requestBody, error: err instanceof Error ? err.message : String(err) });
+    parsed = JSON.parse(rawText);
+  } catch {
+    // Not JSON -- leave parsed as the raw string, still useful to see.
   }
+
+  return json({
+    path,
+    requestBody,
+    httpStatus: res.status,
+    response: parsed,
+  });
 }

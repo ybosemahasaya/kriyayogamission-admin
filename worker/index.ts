@@ -186,11 +186,16 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
 
     // Temporary diagnostic route for Workers Observability (tail-based
     // tracing) -- see the top-of-file comment in
-    // worker/api/worker-observability.ts. ?body= lets the request shape
-    // be iterated on via query string instead of a redeploy per attempt.
+    // worker/api/worker-observability.ts. ?body= and ?path= let both the
+    // request shape and the endpoint itself be iterated on via query
+    // string instead of a redeploy per attempt.
     if (url.pathname === "/api/worker-observability/_debug" && request.method === "GET") {
       try {
-        return await handleObservabilityDebugRequest(env, url.searchParams.get("body"));
+        return await handleObservabilityDebugRequest(
+          env,
+          url.searchParams.get("body"),
+          url.searchParams.get("path"),
+        );
       } catch (err) {
         console.error("Worker observability debug error:", err);
         const message = err instanceof Error ? err.message : String(err);

@@ -16,12 +16,29 @@ import type { Env } from "../types";
 // Cloudflare's REST API conventions, not a verified schema. Unlike the
 // GraphQL dead end, there's no introspection available for a plain REST
 // endpoint -- so this diagnostic handler accepts an optional raw JSON
-// body via ?body=<url-encoded-json>, letting the request shape be
-// iterated on by just changing the query string and refreshing, rather
-// than needing a new code change + deploy for every attempt. Always
-// returns both what was SENT and what came back (success or error), so
-// each round is self-documenting.
-const OBSERVABILITY_QUERY_PATH = (accountId: string) => `/accounts/${accountId}/workers/observability/telemetry/query`;
+// body via ?body=<url-encoded-json> AND an optional path suffix via
+// ?path=<suffix>, letting both the request shape and the endpoint
+// itself be iterated on by just changing the query string and
+// refreshing, rather than needing a new code change + deploy for every
+// attempt. Always returns both what was SENT and what came back
+// (success or error), so each round is self-documenting.
+//
+// Round 3 context: "telemetry/query" DOES exist (confirmed -- it
+// validates its body with Zod and returned a specific "queryId
+// required" error, not a 404). But a random client-generated queryId
+// gets "Query not found", suggesting this might be a two-step API:
+// register/create a query somewhere else first (which hands back a
+// server-generated queryId), then fetch results here using that ID --
+// rather than one-shot ad-hoc querying. ?path= exists specifically to
+// test that theory against candidate paths like
+// "workers/observability/telemetry/queries" (plural, maybe the create
+// endpoint) without a redeploy per guess.
+const DEFAULT_OBSERVABILITY_PATH = "workers/observability/telemetry/query";
+
+function buildPath(accountId: string, pathOverride: string | null): string {
+  const suffix = (pathOverride || DEFAULT_OBSERVABILITY_PATH).replace(/^\/+/, "");
+  return `/accounts/${accountId}/${suffix}`;
+}
 
 function defaultQueryBody() {
   const now = Date.now();
@@ -37,7 +54,11 @@ function defaultQueryBody() {
   };
 }
 
-export async function handleObservabilityDebugRequest(env: Env, rawBody: string | null): Promise<Response> {
+export async function handleObservabilityDebugRequest(
+  env: Env,
+  rawBody: string | null,
+  pathOverride: string | null,
+): Promise<Response> {
   if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
     return errorResponse("Worker Observability is not configured yet.", 503);
   }
@@ -53,7 +74,7 @@ export async function handleObservabilityDebugRequest(env: Env, rawBody: string 
     requestBody = defaultQueryBody();
   }
 
-  const path = OBSERVABILITY_QUERY_PATH(env.CLOUDFLARE_ACCOUNT_ID);
+  const path = buildPath(env.CLOUDFLARE_ACCOUNT_ID, pathOverride);
 
   // Deliberately NOT using worker/lib/cf-rest-client.ts's cfApiRequest
   // here -- its envelope parsing (expects Cloudflare's standard

@@ -26,6 +26,34 @@ function eventRow(workerLabel: string, e: ObservabilityEvent): string[] {
 
 const MERGED_EVENT_COLUMNS = ["Time", "Worker", "Outcome", "Path", "Status", "Duration"];
 
+function PublicSiteTrafficPanel({
+  title,
+  logs,
+}: {
+  title: string;
+  logs: ReturnType<typeof useWorkerLogs>;
+}) {
+  return (
+    <DashboardPanel title={title} subtitle="fixed 7d window">
+      {logs.notConfigured ? (
+        <p className="empty-state">Not configured.</p>
+      ) : logs.error ? (
+        <p className="form-error">{logs.error}</p>
+      ) : (
+        <div className="dashboard-stat-row">
+          <StatTile label="Page views" value={formatNumber(logs.data?.totalPageViews ?? 0)} />
+          <StatTile label="Avg latency" value={`${logs.data?.avgLatencyMs ?? 0}ms`} />
+          <StatTile
+            label="Contact submissions"
+            value={formatNumber(logs.data?.totalContactSubmissions ?? 0)}
+            detail="30d"
+          />
+        </div>
+      )}
+    </DashboardPanel>
+  );
+}
+
 /** A custom, Grafana-STYLED dashboard -- not an integration with actual
  * Grafana, just the same visual language (panel grid, stat tiles,
  * time-series charts, a shared time-range + auto-refresh control) built
@@ -50,6 +78,7 @@ export function DashboardPage({ theme }: { theme: Theme }) {
   const production = useWorkerObservability("production", hours);
   const dev = useWorkerObservability("dev", hours);
   const productionLogs = useWorkerLogs("production");
+  const devLogs = useWorkerLogs("dev");
   const apiObservability = useApiObservability();
 
   // One ref per hook's reload fn, kept current every render without
@@ -60,6 +89,7 @@ export function DashboardPage({ theme }: { theme: Theme }) {
     production: production.reload,
     dev: dev.reload,
     productionLogs: productionLogs.reload,
+    devLogs: devLogs.reload,
     apiObservability: apiObservability.reload,
   });
   reloaders.current = {
@@ -67,6 +97,7 @@ export function DashboardPage({ theme }: { theme: Theme }) {
     production: production.reload,
     dev: dev.reload,
     productionLogs: productionLogs.reload,
+    devLogs: devLogs.reload,
     apiObservability: apiObservability.reload,
   };
 
@@ -75,6 +106,7 @@ export function DashboardPage({ theme }: { theme: Theme }) {
     reloaders.current.production();
     reloaders.current.dev();
     reloaders.current.productionLogs();
+    reloaders.current.devLogs();
     reloaders.current.apiObservability();
     setLastRefreshedAt(new Date());
   }
@@ -193,23 +225,8 @@ export function DashboardPage({ theme }: { theme: Theme }) {
       </div>
 
       <div className="dashboard-grid">
-        <DashboardPanel title="Public site traffic" subtitle="fixed 7d window">
-          {productionLogs.notConfigured ? (
-            <p className="empty-state">Not configured.</p>
-          ) : productionLogs.error ? (
-            <p className="form-error">{productionLogs.error}</p>
-          ) : (
-            <div className="dashboard-stat-row">
-              <StatTile label="Page views" value={formatNumber(productionLogs.data?.totalPageViews ?? 0)} />
-              <StatTile label="Avg latency" value={`${productionLogs.data?.avgLatencyMs ?? 0}ms`} />
-              <StatTile
-                label="Contact submissions"
-                value={formatNumber(productionLogs.data?.totalContactSubmissions ?? 0)}
-                detail="30d"
-              />
-            </div>
-          )}
-        </DashboardPanel>
+        <PublicSiteTrafficPanel title="Public site traffic (Production)" logs={productionLogs} />
+        <PublicSiteTrafficPanel title="Public site traffic (Dev)" logs={devLogs} />
         <DashboardPanel title="Admin API health" subtitle="fixed 7d window">
           {apiObservability.notConfigured ? (
             <p className="empty-state">Not configured.</p>

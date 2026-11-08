@@ -11,6 +11,8 @@ const STATUS_DOT_COLOR: Record<ContactMessageDTO["status"], string> = {
   new: "var(--accent)",
   read: "var(--notice)",
   replied: "#16a34a",
+  spam_turnstile: "#dc2626",
+  spam_akismet: "#dc2626",
 };
 
 /** One row in the mail-style list pane -- deliberately compact (avatar,

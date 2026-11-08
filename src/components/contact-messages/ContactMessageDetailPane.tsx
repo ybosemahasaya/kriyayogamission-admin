@@ -1,6 +1,6 @@
 import type { ContactMessageDTO, ContactMessageStatus } from "../../../shared/contact-messages";
 import { TrashIcon } from "../icons";
-import { STATUS_LABELS, STATUS_ORDER } from "./status-labels";
+import { ALL_STATUS_ORDER, STATUS_LABELS } from "./status-labels";
 import { getAvatarColor, getInitials } from "./avatar-utils";
 
 interface Props {
@@ -65,7 +65,7 @@ export function ContactMessageDetailPane({ message, onBack, onStatusChange, onDe
           value={message.status}
           onChange={(e) => onStatusChange(message, e.target.value as ContactMessageStatus)}
         >
-          {STATUS_ORDER.map((status) => (
+          {ALL_STATUS_ORDER.map((status) => (
             <option key={status} value={status}>
               {STATUS_LABELS[status]}
             </option>

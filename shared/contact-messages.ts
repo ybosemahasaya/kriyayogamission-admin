@@ -2,10 +2,34 @@
  * Contact-form submission persisted to D1 -- see "contact-form-log" in
  * docs/admin-panel-architecture.html. Closes the gap where a Resend
  * outage/bounce/spam-filter meant an inquiry vanished with zero record.
- */
-export type ContactMessageStatus = "new" | "read" | "replied";
+ *
+ * spam_turnstile/spam_akismet (added 2026-11-08, "spam-messages-tab" in
+ * docs/admin-panel-architecture.html) are a SECOND gap-closer of the same
+ * shape: the public site's worker.js used to discard a submission
+ * entirely the moment Turnstile or Akismet flagged it -- not even an
+ * anonymous counter had the actual content, just a Workers Analytics
+ * Engine outcome tag with no name/email/message. These two statuses let
+ * a blocked submission still land here, tagged with WHICH gate caught
+ * it, so an admin can (a) actually see what's being blocked, and (b)
+ * manually move a false positive back to "new" via the exact same status
+ * dropdown already used for new/read/replied -- no separate recovery
+ * flow needed. */
+export type ContactMessageStatus = "new" | "read" | "replied" | "spam_turnstile" | "spam_akismet";
 
-export const CONTACT_MESSAGE_STATUSES: ContactMessageStatus[] = ["new", "read", "replied"];
+export const CONTACT_MESSAGE_STATUSES: ContactMessageStatus[] = [
+  "new",
+  "read",
+  "replied",
+  "spam_turnstile",
+  "spam_akismet",
+];
+
+/** The "real inbox" subset -- what "All" and the Contacts directory mean.
+ * Spam is deliberately excluded from both, same mental model as every
+ * mail client's Spam folder being separate from All Mail. */
+export const TRIAGE_STATUSES: ContactMessageStatus[] = ["new", "read", "replied"];
+
+export const SPAM_STATUSES: ContactMessageStatus[] = ["spam_turnstile", "spam_akismet"];
 
 export function isContactMessageStatus(value: unknown): value is ContactMessageStatus {
   return typeof value === "string" && (CONTACT_MESSAGE_STATUSES as string[]).includes(value);
@@ -77,7 +101,16 @@ export interface ContactMessageListResponse {
  * SITE's Worker (a Cloudflare-to-Cloudflare call), not from the original
  * visitor's browser -- without this field, source_ip would silently
  * record the public site's own Worker egress IP instead of the
- * visitor's. */
+ * visitor's.
+ *
+ * spamReason is set ONLY by the two blocked-submission call sites in the
+ * public site's worker.js (Turnstile failure / Akismet hit) -- omitted
+ * entirely for a normal legit submission, which is what makes the
+ * resulting status default to "new" server-side. Deliberately a REASON,
+ * not a raw status string -- the public ingest contract should describe
+ * WHY a message is flagged, not be trusted to name this table's own
+ * internal status enum (which also includes "read"/"replied", values a
+ * public-facing caller should never be able to set). */
 export interface CreateContactMessageRequest {
   name: string;
   email: string;
@@ -85,6 +118,7 @@ export interface CreateContactMessageRequest {
   address?: string;
   message: string;
   sourceIp?: string;
+  spamReason?: "turnstile" | "akismet";
 }
 
 /** Body the public site's worker.js posts AFTER its Resend call completes,

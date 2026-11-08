@@ -1,4 +1,5 @@
 import { errorResponse, json } from "../lib/http";
+import { TRIAGE_STATUSES } from "../../shared/contact-messages";
 import type { ContactDirectoryEntry, ContactDirectoryResponse } from "../../shared/contacts";
 import type { Env } from "../types";
 
@@ -40,6 +41,11 @@ export async function handleContactsRequest(env: Env): Promise<Response> {
     `WITH normalized AS (
        SELECT LOWER(TRIM(email)) AS email_key, name, phone, address, created_at
        FROM contact_messages
+       -- Excludes spam_turnstile/spam_akismet rows -- a spammer's email
+       -- should never show up in the "who has contacted us" directory,
+       -- same reasoning as a mail client's Contacts list never importing
+       -- entries from Spam. See shared/contact-messages.ts TRIAGE_STATUSES.
+       WHERE status IN (${TRIAGE_STATUSES.map(() => "?").join(", ")})
      ),
      latest AS (
        SELECT email_key, name, phone, address, created_at,
@@ -58,7 +64,9 @@ export async function handleContactsRequest(env: Env): Promise<Response> {
      JOIN counts ON counts.email_key = latest.email_key
      WHERE latest.rn = 1
      ORDER BY counts.last_contacted_at DESC`,
-  ).all<ContactDirectoryRow>();
+  )
+    .bind(...TRIAGE_STATUSES)
+    .all<ContactDirectoryRow>();
 
   const contacts: ContactDirectoryEntry[] = results.map((row) => ({
     email: row.email,

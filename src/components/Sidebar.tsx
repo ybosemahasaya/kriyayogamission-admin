@@ -4,6 +4,7 @@ import {
   BarChartIcon,
   GlobeIcon,
   ImageIcon,
+  LayoutGridIcon,
   LinkIcon,
   MailIcon,
   MoonIcon,
@@ -21,6 +22,7 @@ export type SidebarView =
   | "search-console"
   | "edge-analytics"
   | "worker-logs"
+  | "dashboard"
   | "site-audit";
 
 interface Props {
@@ -118,6 +120,14 @@ export function Sidebar({ theme, onToggleTheme, activeView, onNavigate }: Props)
         >
           <TerminalIcon />
           <span className="sidebar-label">Worker Logs</span>
+        </button>
+        <button
+          type="button"
+          className={activeView === "dashboard" ? "sidebar-nav-item active" : "sidebar-nav-item"}
+          onClick={(e) => handleNavigate("dashboard", e)}
+        >
+          <LayoutGridIcon />
+          <span className="sidebar-label">Dashboard</span>
         </button>
 
         <span className="sidebar-nav-label sidebar-label">Resources</span>

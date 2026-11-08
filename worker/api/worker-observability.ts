@@ -1,5 +1,9 @@
 import { WORKER_TARGETS } from "../../shared/worker-logs";
-import type { ObservabilityEvent, WorkerObservabilitySummaryDTO } from "../../shared/worker-observability";
+import type {
+  ObservabilityEvent,
+  ObservabilitySeriesPoint,
+  WorkerObservabilitySummaryDTO,
+} from "../../shared/worker-observability";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
 
@@ -156,8 +160,13 @@ interface RawObservabilityEvent {
   };
 }
 
+interface RawSeriesPoint {
+  time: string;
+  data: Array<{ aggregates?: { _count?: number; _countErrors?: number } }>;
+}
+
 interface ObservabilityQueryResult {
-  result?: { events?: { events?: RawObservabilityEvent[] } };
+  result?: { events?: { events?: RawObservabilityEvent[]; series?: RawSeriesPoint[] } };
 }
 
 function mapEvent(e: RawObservabilityEvent): ObservabilityEvent {
@@ -175,13 +184,35 @@ function mapEvent(e: RawObservabilityEvent): ObservabilityEvent {
   };
 }
 
-export async function handleWorkerObservabilityRequest(env: Env, key: string): Promise<Response> {
+// Each series bucket's `data` array holds zero or one entry in practice
+// (one aggregate set per time bucket, for an unfiltered/ungrouped
+// query like this one) -- summed defensively rather than assumed to be
+// exactly one, in case Cloudflare ever returns multiple groups per
+// bucket for a query shape this project hasn't tried yet.
+function mapSeriesPoint(p: RawSeriesPoint): ObservabilitySeriesPoint {
+  const count = p.data.reduce((sum, d) => sum + (d.aggregates?._count ?? 0), 0);
+  const errors = p.data.reduce((sum, d) => sum + (d.aggregates?._countErrors ?? 0), 0);
+  return { time: p.time, count, errors };
+}
+
+const DEFAULT_OBSERVABILITY_HOURS = 7 * 24;
+
+export async function handleWorkerObservabilityRequest(
+  env: Env,
+  key: string,
+  hoursParam: string | null,
+): Promise<Response> {
   const target = WORKER_TARGETS.find((t) => t.key === key);
   if (!target) return errorResponse("Unknown Worker.", 404);
 
   if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
     return errorResponse("Worker Observability is not configured yet.", 503);
   }
+
+  // Clamped to a sane range (5 minutes to 30 days) so a malformed or
+  // malicious ?hours= value can't turn into an absurd Cloudflare query.
+  const parsedHours = hoursParam ? Number(hoursParam) : DEFAULT_OBSERVABILITY_HOURS;
+  const hours = Number.isFinite(parsedHours) ? Math.min(Math.max(parsedHours, 1 / 12), 24 * 30) : DEFAULT_OBSERVABILITY_HOURS;
 
   const now = Date.now();
   // ONE query per Worker, not three -- both "exceptions" and "slowest
@@ -191,7 +222,7 @@ export async function handleWorkerObservabilityRequest(env: Env, key: string): P
   // back newest-first by default, which is good enough to sample from).
   const requestBody = {
     queryId: `worker-observability-${key}`,
-    timeframe: { from: now - 7 * 24 * 60 * 60 * 1000, to: now },
+    timeframe: { from: now - hours * 60 * 60 * 1000, to: now },
     view: "events",
     limit: 100,
     parameters: {
@@ -220,6 +251,7 @@ export async function handleWorkerObservabilityRequest(env: Env, key: string): P
   const body = (await res.json()) as ObservabilityQueryResult;
   const rawEvents = body.result?.events?.events ?? [];
   const events = rawEvents.map(mapEvent);
+  const series = (body.result?.events?.series ?? []).map(mapSeriesPoint);
 
   // "ok" is the normal/healthy outcome -- anything else (exception,
   // exceededCpu, canceled, etc.) is what "exceptions" means here.
@@ -232,6 +264,9 @@ export async function handleWorkerObservabilityRequest(env: Env, key: string): P
     recentExceptions,
     slowestRequests,
     recentEvents,
+    series,
+    totalRequests: series.reduce((sum, p) => sum + p.count, 0),
+    totalErrors: series.reduce((sum, p) => sum + p.errors, 0),
   };
 
   return json(payload);

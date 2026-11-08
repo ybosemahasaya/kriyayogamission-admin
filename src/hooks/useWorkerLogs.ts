@@ -6,6 +6,7 @@ interface UseWorkerLogsResult {
   loading: boolean;
   error: string | null;
   notConfigured: boolean;
+  reload: () => void;
 }
 
 /** Only for the two Public Site tabs -- the Admin Panel tab renders
@@ -43,5 +44,5 @@ export function useWorkerLogs(key: PublicSiteTargetKey): UseWorkerLogsResult {
     load();
   }, [load]);
 
-  return { data, loading, error, notConfigured };
+  return { data, loading, error, notConfigured, reload: load };
 }

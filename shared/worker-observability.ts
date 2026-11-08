@@ -31,9 +31,30 @@ export interface ObservabilityEvent {
   requestId: string | null;
 }
 
+export interface ObservabilitySeriesPoint {
+  /** Cloudflare's own bucket label, already a readable string (e.g.
+   * "2026-11-08 09:12:00") -- passed through verbatim rather than
+   * reparsed, same reasoning as every other Cloudflare-formatted string
+   * in this project. */
+  time: string;
+  count: number;
+  errors: number;
+}
+
 export interface WorkerObservabilitySummaryDTO {
   scriptName: string;
   recentExceptions: ObservabilityEvent[];
   slowestRequests: ObservabilityEvent[];
   recentEvents: ObservabilityEvent[];
+  /** Time-bucketed request/error counts across the FULL queried window
+   * -- not capped at 100 like the arrays above, since this comes from
+   * Cloudflare's own server-side aggregation (the `series` field on its
+   * response), not from summing the raw event sample. This is what
+   * powers the dashboard's time-series panels. */
+  series: ObservabilitySeriesPoint[];
+  /** Totals from that same server-side aggregation -- accurate counts
+   * for the whole window, unlike `recentEvents.length` which is capped
+   * at the sample size. Used for the dashboard's stat tiles. */
+  totalRequests: number;
+  totalErrors: number;
 }

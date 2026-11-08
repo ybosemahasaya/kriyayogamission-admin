@@ -111,6 +111,50 @@ interface FirewallBreakdownResponse {
   };
 }
 
+// TEMPORARY diagnostic for a Security Center/DDoS feasibility check
+// (2026-11-08): Cloudflare's current docs say Security Events
+// (firewallEventsAdaptive) should be available on Free plan, just
+// sampled -- but this zone's firewallEventsAdaptiveGroups (the GROUPED
+// variant, used above) returned "zone does not have access to the
+// path" when tested live. Testing whether the RAW (non-grouped)
+// firewallEventsAdaptive behaves differently before concluding this is
+// a hard plan block vs. a quirk of the aggregated query specifically.
+// Safe to delete once the feasibility question is answered either way.
+const RAW_FIREWALL_EVENTS_QUERY = `
+  query EdgeFirewallRaw($zoneTag: String!, $since: Time!, $until: Time!) {
+    viewer {
+      zones(filter: { zoneTag: $zoneTag }) {
+        firewallEventsAdaptive(limit: 5, filter: { datetime_geq: $since, datetime_leq: $until }) {
+          action
+          clientRequestPath
+          clientCountryName
+          source
+          datetime
+        }
+      }
+    }
+  }
+`;
+
+export async function handleFirewallDebugRequest(env: Env): Promise<Response> {
+  const creds = requireCredentials(env);
+  if (!creds) return errorResponse("Edge analytics is not configured yet.", 503);
+
+  const until = new Date();
+  const since = new Date(until.getTime() - 24 * 60 * 60 * 1000);
+
+  try {
+    const data = await runCloudflareGraphQL(creds.apiToken, RAW_FIREWALL_EVENTS_QUERY, {
+      zoneTag: creds.zoneTag,
+      since: since.toISOString(),
+      until: until.toISOString(),
+    });
+    return json({ outcome: "success", data });
+  } catch (err) {
+    return json({ outcome: "error", message: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Promise<Response> {
   const creds = requireCredentials(env);
   if (!creds) return errorResponse("Edge analytics is not configured yet.", 503);

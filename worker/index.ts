@@ -2,7 +2,7 @@ import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from ".
 import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest, handleZarazConfigRequest } from "./api/cf-ops";
 import { handleApiObservabilityRequest } from "./api/api-observability";
 import { handleWorkerLogsRequest } from "./api/worker-logs";
-import { handleObservabilityDebugRequest } from "./api/worker-observability";
+import { handleObservabilityDebugRequest, handleWorkerObservabilityRequest } from "./api/worker-observability";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
@@ -198,6 +198,17 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
         );
       } catch (err) {
         console.error("Worker observability debug error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    const observabilityMatch = url.pathname.match(/^\/api\/worker-observability\/([^/]+)$/);
+    if (observabilityMatch && request.method === "GET") {
+      try {
+        return await handleWorkerObservabilityRequest(env, observabilityMatch[1]);
+      } catch (err) {
+        console.error("Worker observability API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

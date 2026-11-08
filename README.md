@@ -205,6 +205,51 @@ Setup:
    this project -- Cloudflare's SQL dialect isn't formally documented,
    and this is the first time these particular two datasets have been
    queried. If a Public Site tab errors, paste the exact message.
+5. **Public site API health** (within each Public Site tab): a THIRD
+   dataset, `kym_public_api_metrics`, mirroring the Admin API
+   observability widget's exact shape (method/path/status/duration) for
+   the public site's one real API route, `/api/contact`. Same setup as
+   above -- no new permission or secret, just needs that repo's
+   `PUBLIC_API_METRICS` binding deployed.
+
+### Workers Observability (request traces, exceptions, slow spans)
+
+A fourth Cloudflare data source on the Worker Logs page -- shown on
+**all three tabs** (unlike the traffic/contact-funnel/API-health
+widgets above, which are public-site-only), since this reads
+Cloudflare's own built-in per-script event stream, which exists for
+every Worker automatically once `observability.enabled: true` is set
+(already true in both this repo's and the public site's `wrangler.jsonc`
+-- zero extra deploy needed for this part).
+
+**Setup:**
+
+1. Add **Workers Observability Write** to the same Account-scoped
+   policy row as everything else. Counter-intuitive name for a read
+   operation, but that's what Cloudflare's own API reference names as
+   the required permission for this specific method.
+2. No new secret, no new var -- reuses `CLOUDFLARE_ACCOUNT_ID`/
+   `CLOUDFLARE_API_TOKEN`.
+3. That's it. One query per Worker (`view: "events"`, 7-day window, 100
+   most recent events, filtered by `$workers.scriptName`), with both
+   "exceptions" (`outcome != "ok"`) and "slowest requests" (sorted by
+   `wallTimeMs`) derived from that same sample rather than issuing extra
+   queries with less-verified filter/orderBy combinations.
+
+**The road here, for anyone debugging this later** (full detail in code
+comments in `worker/api/worker-observability.ts`): five rounds of live
+trial-and-error against the real API (wrong field name -> missing
+`queryId` -> `queryId` referenced a nonexistent saved query ->
+missing `type` discriminator on a filter) before finally just reading
+Cloudflare's own official API reference via a web-retriever fetch,
+which confirmed the whole shape in one shot. That page:
+https://developers.cloudflare.com/api/resources/workers/subresources/observability/subresources/telemetry/methods/query
+-- worth checking FIRST next time instead of fifth.
+
+A permanent diagnostic tool survives at `GET /api/worker-observability/_debug`
+(optionally `?body=` / `?path=` overrides) in case this API's shape ever
+shifts again -- safe to leave deployed, read-only, same Access gate as
+everything else.
 
 ## Branch strategy
 

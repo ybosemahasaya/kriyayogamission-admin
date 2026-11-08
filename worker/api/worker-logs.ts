@@ -1,186 +1,169 @@
-import { WORKER_TARGETS, type WorkerLogSummaryDTO, type WorkerStatusCount } from "../../shared/worker-logs";
-import { runCloudflareGraphQL } from "../lib/cf-graphql-client";
+import {
+  type ContactFunnelOutcome,
+  type PublicSiteDailyPoint,
+  type PublicSitePathViews,
+  type PublicSiteLogsSummaryDTO,
+  type PublicSiteTargetKey,
+} from "../../shared/worker-logs";
+import { queryAnalyticsEngine } from "../lib/analytics-engine-client";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
 
-// HONEST CAVEAT, read before debugging a permission/field error here:
-// unlike httpRequests1dGroups and firewallEventsAdaptiveGroups (both
-// confirmed working against this account), this specific dataset's
-// exact field names were NOT verified against a live account before
-// shipping -- Cloudflare's Workers-analytics GraphQL schema is less
-// publicly documented than the zone-level one. If this errors, the
-// message will surface verbatim in the UI same as everywhere else in
-// this project -- the fastest way to fix the field names, not a sign
-// the whole approach is wrong. Candidate permission(s) to try on the
-// Account-scoped policy row: "Workers Observability: Read" first; if
-// that's not it, "Account Analytics: Read" (already granted for the
-// Analytics Engine widget) may double as the one this dataset needs.
-const WORKER_INVOCATIONS_QUERY = `
-  query GetWorkerInvocations($accountTag: string!, $scriptName: string!, $since: Time!, $until: Time!) {
-    viewer {
-      accounts(filter: { accountTag: $accountTag }) {
-        workersInvocationsAdaptiveGroups(
-          limit: 1000
-          filter: { datetime_geq: $since, datetime_leq: $until, scriptName: $scriptName }
-        ) {
-          dimensions {
-            status
-          }
-          sum {
-            requests
-            errors
-          }
-          avg {
-            cpuTime
-          }
-        }
-      }
-    }
-  }
-`;
+// --- The saga, for anyone landing on this file cold ---
+//
+// 1st attempt: Cloudflare's built-in Workers Logs/Observability via the
+// account-level GraphQL field `workersInvocationsAdaptiveGroups` --
+// guessed, turned out not to exist (confirmed live: "unknown field").
+//
+// 2nd attempt: schema introspection found the REAL field,
+// `workersInvocationsByOwnerAndScriptGroups`. Drilled into its full
+// shape (dimensions/sum/filter) via two more introspection rounds --
+// confirmed it has ZERO scriptName filter or dimension anywhere. This
+// account's only reachable Workers-invocations GraphQL dataset cannot
+// distinguish one script's traffic from another's, full stop. Not
+// fixable with a different field name -- this is a hard capability
+// limit of the account-level GraphQL schema as introspected.
+//
+// 3rd attempt (this one, working): the public site's own Worker now
+// writes its own Analytics Engine data points directly (added to that
+// repo with explicit sign-off, since it's a different repo -- see
+// worker.js there for the writeDataPoint() calls and exactly what each
+// blob/double column means). Read here via the EXACT SAME Analytics
+// Engine SQL API client already proven working for this admin panel's
+// own metrics (worker/lib/api-metrics.ts + worker/api/api-observability.ts).
+// Querying across account boundaries isn't needed -- Analytics Engine
+// datasets are addressed by name at the SQL layer, readable by any
+// Worker/token with Account Analytics: Read on this account, regardless
+// of which Worker originally wrote the data.
+//
+// HONEST CAVEAT, same as api-observability.ts: Cloudflare's Analytics
+// Engine SQL dialect isn't formally documented. These queries follow
+// the same conventions already confirmed working for admin_panel_api_metrics,
+// but querying a DIFFERENT dataset for the first time always carries a
+// little risk of a column-name or type mismatch. If this errors, the
+// message surfaces verbatim in the UI -- same fix-in-one-pass pattern
+// as everywhere else.
 
-interface InvocationGroup {
-  dimensions: { status: string };
-  sum: { requests: number; errors: number };
-  avg: { cpuTime: number };
+const TRAFFIC_DATASET = "kym_site_traffic";
+const CONTACT_DATASET = "kym_contact_funnel";
+
+// Must match DEV_HOSTNAMES / PRODUCTION_HOSTNAMES in the public site's
+// worker.js exactly -- these are how its single Worker-serving-both-
+// domains setup gets split back into two separate tabs here.
+const HOSTNAME_GROUPS: Record<PublicSiteTargetKey, string[]> = {
+  production: ["kriyayogamission.org", "www.kriyayogamission.org"],
+  dev: ["dev.kriyayogamission.org", "kriyayogamission-dev.ybosemahasaya.workers.dev"],
+};
+
+// Hostnames above are fixed internal constants, never request-supplied,
+// so simple string interpolation into the SQL (rather than a
+// parameterized query -- the Analytics Engine SQL API doesn't offer
+// one) carries no injection risk.
+function hostnameFilter(hostnames: string[]): string {
+  return hostnames.map((h) => `'${h}'`).join(", ");
 }
 
-interface GraphQLResponse {
-  viewer: { accounts: { workersInvocationsAdaptiveGroups: InvocationGroup[] }[] };
+interface PathRow {
+  path: string;
+  views: number;
+  avg_latency_ms: number;
+}
+
+interface TotalsRow {
+  views: number;
+  avg_latency_ms: number;
+}
+
+interface DailyRow {
+  day: string;
+  views: number;
+}
+
+interface OutcomeRow {
+  outcome: string;
+  count: number;
 }
 
 export async function handleWorkerLogsRequest(env: Env, key: string): Promise<Response> {
-  const target = WORKER_TARGETS.find((t) => t.key === key);
-  if (!target) return errorResponse("Unknown Worker.", 404);
+  if (key !== "production" && key !== "dev") {
+    return errorResponse("Unknown Worker. Expected 'production' or 'dev'.", 404);
+  }
 
   if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
     return errorResponse("Worker Logs is not configured yet.", 503);
   }
 
-  const until = new Date();
-  const since = new Date(until.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const hostnames = hostnameFilter(HOSTNAME_GROUPS[key]);
 
-  const data = await runCloudflareGraphQL<GraphQLResponse>(env.CLOUDFLARE_API_TOKEN, WORKER_INVOCATIONS_QUERY, {
-    accountTag: env.CLOUDFLARE_ACCOUNT_ID,
-    scriptName: target.scriptName,
-    since: since.toISOString(),
-    until: until.toISOString(),
-  });
+  const byPathSql = `
+    SELECT
+      blob2 AS path,
+      SUM(_sample_interval) AS views,
+      AVG(double1) AS avg_latency_ms
+    FROM ${TRAFFIC_DATASET}
+    WHERE timestamp > NOW() - INTERVAL '7' DAY
+      AND blob1 IN (${hostnames})
+    GROUP BY path
+    ORDER BY views DESC
+    LIMIT 50
+  `;
 
-  const groups = data.viewer.accounts[0]?.workersInvocationsAdaptiveGroups ?? [];
+  const totalsSql = `
+    SELECT
+      SUM(_sample_interval) AS views,
+      AVG(double1) AS avg_latency_ms
+    FROM ${TRAFFIC_DATASET}
+    WHERE timestamp > NOW() - INTERVAL '7' DAY
+      AND blob1 IN (${hostnames})
+  `;
 
-  const byStatus: WorkerStatusCount[] = groups.map((g) => ({
-    status: g.dimensions.status,
-    requests: g.sum.requests,
-  }));
+  const dailySql = `
+    SELECT
+      toDate(timestamp) AS day,
+      SUM(_sample_interval) AS views
+    FROM ${TRAFFIC_DATASET}
+    WHERE timestamp > NOW() - INTERVAL '14' DAY
+      AND blob1 IN (${hostnames})
+    GROUP BY day
+    ORDER BY day ASC
+  `;
 
-  const totalRequests = byStatus.reduce((sum, s) => sum + s.requests, 0);
-  const totalErrors = groups.reduce((sum, g) => sum + g.sum.errors, 0);
-  const avgCpuTimeMs = groups.length > 0 ? groups.reduce((sum, g) => sum + g.avg.cpuTime, 0) / groups.length : 0;
+  // 30-day window, not 7 -- contact submissions are far rarer than page
+  // views, a short window would often show nothing at all.
+  const contactFunnelSql = `
+    SELECT
+      blob2 AS outcome,
+      SUM(_sample_interval) AS count
+    FROM ${CONTACT_DATASET}
+    WHERE timestamp > NOW() - INTERVAL '30' DAY
+      AND blob1 IN (${hostnames})
+    GROUP BY outcome
+    ORDER BY count DESC
+  `;
 
-  const payload: WorkerLogSummaryDTO = {
-    scriptName: target.scriptName,
-    label: target.label,
-    totalRequests,
-    totalErrors,
-    avgCpuTimeMs: Math.round(avgCpuTimeMs),
-    byStatus,
+  const [pathRows, totalsRows, dailyRows, outcomeRows] = await Promise.all([
+    queryAnalyticsEngine<PathRow>(env.CLOUDFLARE_API_TOKEN, env.CLOUDFLARE_ACCOUNT_ID, byPathSql),
+    queryAnalyticsEngine<TotalsRow>(env.CLOUDFLARE_API_TOKEN, env.CLOUDFLARE_ACCOUNT_ID, totalsSql),
+    queryAnalyticsEngine<DailyRow>(env.CLOUDFLARE_API_TOKEN, env.CLOUDFLARE_ACCOUNT_ID, dailySql),
+    queryAnalyticsEngine<OutcomeRow>(env.CLOUDFLARE_API_TOKEN, env.CLOUDFLARE_ACCOUNT_ID, contactFunnelSql),
+  ]);
+
+  const byPath: PublicSitePathViews[] = pathRows.map((r) => ({ path: r.path, views: r.views }));
+  const daily: PublicSiteDailyPoint[] = dailyRows.map((r) => ({ date: r.day, views: r.views }));
+  const contactFunnel: ContactFunnelOutcome[] = outcomeRows.map((r) => ({ outcome: r.outcome, count: r.count }));
+
+  const totals = totalsRows[0];
+  const label = key === "production" ? "Public Site (Production)" : "Public Site (Dev)";
+
+  const payload: PublicSiteLogsSummaryDTO = {
+    label,
+    totalPageViews: totals?.views ?? 0,
+    avgLatencyMs: totals ? Math.round(totals.avg_latency_ms) : 0,
+    byPath,
+    daily,
+    contactFunnel,
+    totalContactSubmissions: contactFunnel.reduce((sum, o) => sum + o.count, 0),
   };
 
   return json(payload);
-}
-
-// --- Schema introspection, temporary diagnostic tool ---
-//
-// The field-name guess above (workersInvocationsAdaptiveGroups) turned
-// out to be wrong: the live schema returned "unknown field" for it.
-// Confirmed-real top-level field via a first round of this same tool:
-// workersInvocationsByOwnerAndScriptGroups (groups by script, exactly
-// what's needed to tell the three Workers apart). This second mode
-// drills into that field's return type and every related nested type
-// (Dimensions/Sum/Avg/Quantiles/Uniq, following Cloudflare's own naming
-// convention -- confirmed by AccountWorkersInvocationsByOwnerAndScript
-// GroupsUniq showing up in the first round) so the real query can be
-// written against the real shape instead of guessing a third time.
-// Safe to leave deployed permanently -- read-only, authenticated same
-// as every other /api/* route, costs nothing when not called.
-const INTROSPECTION_QUERY = `
-  query {
-    __schema {
-      types {
-        name
-        fields {
-          name
-          type {
-            kind
-            name
-            ofType { kind name ofType { kind name } }
-          }
-        }
-        inputFields {
-          name
-          type {
-            kind
-            name
-            ofType { kind name ofType { kind name } }
-          }
-        }
-      }
-    }
-  }
-`;
-
-interface IntrospectionTypeRef {
-  kind: string;
-  name: string | null;
-  ofType: { kind: string; name: string | null; ofType: { kind: string; name: string | null } | null } | null;
-}
-
-interface IntrospectionField {
-  name: string;
-  type: IntrospectionTypeRef;
-}
-
-interface IntrospectionType {
-  name: string;
-  fields: IntrospectionField[] | null;
-  inputFields: IntrospectionField[] | null;
-}
-
-interface IntrospectionResponse {
-  __schema: { types: IntrospectionType[] };
-}
-
-function unwrapTypeName(ref: IntrospectionTypeRef): string {
-  return ref.name ?? ref.ofType?.name ?? ref.ofType?.ofType?.name ?? ref.kind;
-}
-
-export async function handleWorkerLogsSchemaDebugRequest(env: Env, pattern: string): Promise<Response> {
-  if (!env.CLOUDFLARE_API_TOKEN) {
-    return errorResponse("Worker Logs is not configured yet.", 503);
-  }
-
-  const data = await runCloudflareGraphQL<IntrospectionResponse>(env.CLOUDFLARE_API_TOKEN, INTROSPECTION_QUERY, {});
-  const needle = new RegExp(pattern, "i");
-
-  // Default mode (no ?type= param): field names on ANY type matching
-  // the pattern -- good for an initial "does this field exist" sweep.
-  // With ?type=: full field list (name + resolved type) of every TYPE
-  // whose own name matches -- good for learning one dataset's exact
-  // shape once you already know its top-level field name.
-  const byType = data.__schema.types
-    .filter((t) => needle.test(t.name))
-    .map((t) => ({
-      typeName: t.name,
-      fields: (t.fields ?? []).map((f) => ({ fieldName: f.name, type: unwrapTypeName(f.type) })),
-      inputFields: (t.inputFields ?? []).map((f) => ({ fieldName: f.name, type: unwrapTypeName(f.type) })),
-    }));
-
-  const byField = data.__schema.types.flatMap((t) =>
-    (t.fields ?? [])
-      .filter((f) => needle.test(f.name))
-      .map((f) => ({ typeName: t.name, fieldName: f.name, type: unwrapTypeName(f.type) })),
-  );
-
-  return json({ byType, byField });
 }

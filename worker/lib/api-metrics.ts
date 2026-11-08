@@ -18,7 +18,7 @@ const KNOWN_PATH_SEGMENTS = new Set([
   "email-metrics", "contacts",
   "contact-messages", "backfill-from-resend",
   "observability", "api-metrics",
-  "worker-logs", "admin", "production", "dev", "_debug-schema",
+  "worker-logs", "admin", "production", "dev",
 ]);
 
 function normalizePath(pathname: string): string {

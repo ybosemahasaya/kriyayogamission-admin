@@ -117,6 +117,14 @@ const INTROSPECTION_QUERY = `
             ofType { kind name ofType { kind name } }
           }
         }
+        inputFields {
+          name
+          type {
+            kind
+            name
+            ofType { kind name ofType { kind name } }
+          }
+        }
       }
     }
   }
@@ -136,6 +144,7 @@ interface IntrospectionField {
 interface IntrospectionType {
   name: string;
   fields: IntrospectionField[] | null;
+  inputFields: IntrospectionField[] | null;
 }
 
 interface IntrospectionResponse {
@@ -164,6 +173,7 @@ export async function handleWorkerLogsSchemaDebugRequest(env: Env, pattern: stri
     .map((t) => ({
       typeName: t.name,
       fields: (t.fields ?? []).map((f) => ({ fieldName: f.name, type: unwrapTypeName(f.type) })),
+      inputFields: (t.inputFields ?? []).map((f) => ({ fieldName: f.name, type: unwrapTypeName(f.type) })),
     }));
 
   const byField = data.__schema.types.flatMap((t) =>

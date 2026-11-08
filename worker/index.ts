@@ -4,7 +4,7 @@ import { handleApiObservabilityRequest } from "./api/api-observability";
 import { handleWorkerLogsRequest } from "./api/worker-logs";
 import { handleObservabilityDebugRequest, handleWorkerObservabilityRequest } from "./api/worker-observability";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
-import { handleEdgeAnalyticsRequest, handleFirewallDebugRequest } from "./api/edge-analytics";
+import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
 import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
@@ -105,18 +105,6 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
         return await handleEdgeAnalyticsRequest(request, env);
       } catch (err) {
         console.error("Edge analytics API error:", err);
-        const message = err instanceof Error ? err.message : String(err);
-        return errorResponse(message, 500);
-      }
-    }
-
-    // TEMPORARY -- Security Center/DDoS feasibility check, see the
-    // top-of-function comment in worker/api/edge-analytics.ts. Safe to
-    // delete once that question is answered.
-    if (url.pathname === "/api/edge-analytics/_debug-firewall" && request.method === "GET") {
-      try {
-        return await handleFirewallDebugRequest(env);
-      } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

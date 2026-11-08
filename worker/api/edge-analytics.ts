@@ -42,52 +42,47 @@ const HTTP_SUMMARY_QUERY = `
   }
 `;
 
-// Three aliased calls to the same dataset, each grouped by a different
-// single dimension, so one round trip returns "top actions," "top
-// blocked paths," and "top source countries" without needing a
-// combined/joined dimension set. firewallEventsAdaptiveGroups is sampled
-// at high volume like the rest of the "Adaptive" family of datasets --
-// fine for a "what's trending" card, not for exact compliance-grade counts.
+// RESOLVED 2026-11-08: firewallEventsAdaptiveGroups (the GROUPED/
+// server-side-aggregated variant) returns "zone does not have access to
+// the path" on this Free-plan zone -- but the RAW (non-grouped)
+// firewallEventsAdaptive field, confirmed live, works fine and returns
+// real events (bot-fight-mode challenges, etc.). So this is NOT a hard
+// plan block on firewall event data itself -- just the server-side
+// GROUP BY/aggregation specifically. Fix: fetch raw events and do the
+// action/path/country/source counting ourselves in the handler below,
+// same end result, one extra step. "Adaptive" datasets are sampled at
+// high volume -- fine for a "what's trending" card, not for exact
+// compliance-grade counts, same caveat as before.
 //
-// CONFIRMED 2026-11-08 against kriyayogamission.org (Free plan): this
-// dataset returns "zone 'X' does not have access to the path" on Free --
-// Cloudflare gates Firewall Events analytics behind Pro plan or higher.
-// httpRequests1dGroups above has no such restriction. That's exactly why
-// this query is caught independently in the handler below instead of
-// Promise.all'd with the http summary -- one plan-gated dataset
-// shouldn't block the KPIs/chart that DO work on every plan.
-const FIREWALL_BREAKDOWN_QUERY = `
-  query EdgeFirewallBreakdown($zoneTag: String!, $since: Time!, $until: Time!) {
+// `source` is the genuinely new, useful field here -- it's WHICH
+// Cloudflare protection mechanism handled the request ("botFight" =
+// free Bot Fight Mode, "waf" = managed WAF rules, "linkMaze" =
+// anti-scraper honeypot links, etc.), which is actual zone-specific
+// threat intel, not just a generic "threats" count.
+const FIREWALL_EVENTS_QUERY = `
+  query EdgeFirewallEvents($zoneTag: String!, $since: Time!, $until: Time!, $limit: Int!) {
     viewer {
       zones(filter: { zoneTag: $zoneTag }) {
-        byAction: firewallEventsAdaptiveGroups(
-          limit: 10
+        firewallEventsAdaptive(
+          limit: $limit
           filter: { datetime_geq: $since, datetime_leq: $until }
-          orderBy: [count_DESC]
+          orderBy: [datetime_DESC]
         ) {
-          count
-          dimensions { action }
-        }
-        byPath: firewallEventsAdaptiveGroups(
-          limit: 10
-          filter: { datetime_geq: $since, datetime_leq: $until }
-          orderBy: [count_DESC]
-        ) {
-          count
-          dimensions { clientRequestPath }
-        }
-        byCountry: firewallEventsAdaptiveGroups(
-          limit: 10
-          filter: { datetime_geq: $since, datetime_leq: $until }
-          orderBy: [count_DESC]
-        ) {
-          count
-          dimensions { clientCountryName }
+          action
+          clientRequestPath
+          clientCountryName
+          source
+          datetime
         }
       }
     }
   }
 `;
+
+// How many raw events to sample per request -- generous enough for a
+// meaningful top-10 breakdown on a low/moderate-traffic site, without
+// risking Cloudflare's own per-query result caps on Adaptive datasets.
+const FIREWALL_EVENTS_SAMPLE_LIMIT = 500;
 
 interface HttpSummaryResponse {
   viewer: {
@@ -101,58 +96,37 @@ interface HttpSummaryResponse {
   };
 }
 
-interface FirewallBreakdownResponse {
+interface RawFirewallEvent {
+  action: string;
+  clientRequestPath: string;
+  clientCountryName: string;
+  source: string;
+}
+
+interface FirewallEventsResponse {
   viewer: {
-    zones: {
-      byAction: { count: number; dimensions: { action: string } }[];
-      byPath: { count: number; dimensions: { clientRequestPath: string } }[];
-      byCountry: { count: number; dimensions: { clientCountryName: string } }[];
-    }[];
+    zones: { firewallEventsAdaptive: RawFirewallEvent[] }[];
   };
 }
 
-// TEMPORARY diagnostic for a Security Center/DDoS feasibility check
-// (2026-11-08): Cloudflare's current docs say Security Events
-// (firewallEventsAdaptive) should be available on Free plan, just
-// sampled -- but this zone's firewallEventsAdaptiveGroups (the GROUPED
-// variant, used above) returned "zone does not have access to the
-// path" when tested live. Testing whether the RAW (non-grouped)
-// firewallEventsAdaptive behaves differently before concluding this is
-// a hard plan block vs. a quirk of the aggregated query specifically.
-// Safe to delete once the feasibility question is answered either way.
-const RAW_FIREWALL_EVENTS_QUERY = `
-  query EdgeFirewallRaw($zoneTag: String!, $since: Time!, $until: Time!) {
-    viewer {
-      zones(filter: { zoneTag: $zoneTag }) {
-        firewallEventsAdaptive(limit: 5, filter: { datetime_geq: $since, datetime_leq: $until }) {
-          action
-          clientRequestPath
-          clientCountryName
-          source
-          datetime
-        }
-      }
-    }
+/** Counts occurrences of one field across raw events and returns the
+ * top N, descending -- the client-side replacement for what
+ * firewallEventsAdaptiveGroups used to do server-side before it turned
+ * out to be blocked on this zone's plan while the raw dataset isn't. */
+function topCounts<K extends string>(
+  events: RawFirewallEvent[],
+  key: (e: RawFirewallEvent) => K,
+  limit: number,
+): { key: K; count: number }[] {
+  const counts = new Map<K, number>();
+  for (const event of events) {
+    const k = key(event);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
   }
-`;
-
-export async function handleFirewallDebugRequest(env: Env): Promise<Response> {
-  const creds = requireCredentials(env);
-  if (!creds) return errorResponse("Edge analytics is not configured yet.", 503);
-
-  const until = new Date();
-  const since = new Date(until.getTime() - 24 * 60 * 60 * 1000);
-
-  try {
-    const data = await runCloudflareGraphQL(creds.apiToken, RAW_FIREWALL_EVENTS_QUERY, {
-      zoneTag: creds.zoneTag,
-      since: since.toISOString(),
-      until: until.toISOString(),
-    });
-    return json({ outcome: "success", data });
-  } catch (err) {
-    return json({ outcome: "error", message: err instanceof Error ? err.message : String(err) });
-  }
+  return [...counts.entries()]
+    .map(([k, count]) => ({ key: k, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
 }
 
 export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Promise<Response> {
@@ -167,10 +141,11 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
 
   // httpRequests1dGroups is required -- without it there's nothing to
   // show at all, so let a failure here bubble up as a real error (same
-  // as before). firewallEventsAdaptiveGroups is queried independently
-  // and allowed to fail on its own: dataset/field availability can vary
-  // by Cloudflare plan (see cf-graphql-client.ts), and one unavailable
-  // dataset shouldn't blank out the KPIs/chart that DID load fine.
+  // as before). firewallEventsAdaptive is queried independently and
+  // allowed to fail on its own: it's a different dataset from
+  // httpRequests1dGroups and there's no guarantee both ever fail/succeed
+  // together, so one unavailable dataset shouldn't blank out the
+  // KPIs/chart that DID load fine.
   const httpData = await runCloudflareGraphQL<HttpSummaryResponse>(creds.apiToken, HTTP_SUMMARY_QUERY, {
     zoneTag: creds.zoneTag,
     since: isoDate(since),
@@ -180,17 +155,19 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
     limit: days + 1,
   });
 
-  let firewallData: FirewallBreakdownResponse | null = null;
+  let firewallEvents: RawFirewallEvent[] = [];
   let firewallError: string | null = null;
   try {
-    firewallData = await runCloudflareGraphQL<FirewallBreakdownResponse>(creds.apiToken, FIREWALL_BREAKDOWN_QUERY, {
+    const firewallData = await runCloudflareGraphQL<FirewallEventsResponse>(creds.apiToken, FIREWALL_EVENTS_QUERY, {
       zoneTag: creds.zoneTag,
       since: since.toISOString(),
       until: until.toISOString(),
+      limit: FIREWALL_EVENTS_SAMPLE_LIMIT,
     });
+    firewallEvents = firewallData.viewer.zones[0]?.firewallEventsAdaptive ?? [];
   } catch (err) {
     firewallError = err instanceof Error ? err.message : String(err);
-    console.error("Edge analytics firewall breakdown query failed (non-fatal):", firewallError);
+    console.error("Edge analytics firewall events query failed (non-fatal):", firewallError);
   }
 
   const httpZone = httpData.viewer.zones[0];
@@ -214,8 +191,6 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
     { totalRequests: 0, cachedRequests: 0, totalBytes: 0, totalThreats: 0, totalUniques: 0 },
   );
 
-  const firewallZone = firewallData?.viewer.zones[0];
-
   const payload: EdgeAnalyticsDTO = {
     range,
     summary: {
@@ -223,15 +198,17 @@ export async function handleEdgeAnalyticsRequest(request: Request, env: Env): Pr
       cacheHitRatio: totals.totalRequests > 0 ? totals.cachedRequests / totals.totalRequests : 0,
     },
     daily,
-    firewallActions: (firewallZone?.byAction ?? []).map((row) => ({ action: row.dimensions.action, count: row.count })),
-    firewallTopPaths: (firewallZone?.byPath ?? []).map((row) => ({
-      path: row.dimensions.clientRequestPath,
-      count: row.count,
+    firewallActions: topCounts(firewallEvents, (e) => e.action, 10).map((r) => ({ action: r.key, count: r.count })),
+    firewallTopPaths: topCounts(firewallEvents, (e) => e.clientRequestPath, 10).map((r) => ({
+      path: r.key,
+      count: r.count,
     })),
-    firewallTopCountries: (firewallZone?.byCountry ?? []).map((row) => ({
-      country: row.dimensions.clientCountryName,
-      count: row.count,
+    firewallTopCountries: topCounts(firewallEvents, (e) => e.clientCountryName, 10).map((r) => ({
+      country: r.key,
+      count: r.count,
     })),
+    firewallBySource: topCounts(firewallEvents, (e) => e.source, 10).map((r) => ({ source: r.key, count: r.count })),
+    firewallSampleSize: firewallEvents.length,
     firewallError,
   };
 

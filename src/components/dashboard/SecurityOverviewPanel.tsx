@@ -23,18 +23,20 @@ interface Props {
  *   SKIPPED -- it's not about this site at all, just general internet
  *   weather. Would be decorative, not actionable, for a small
  *   nonprofit's own admin panel.
- * - "Security Center"-equivalent insights ARE feasible for the parts
- *   this zone's Free plan actually exposes: SSL/TLS status and DNS
- *   records (both already built, reused here, not duplicated) plus a
- *   basic threats-mitigated counter (works on every Cloudflare plan).
- * - The deeper WAF/firewall action breakdown -- the closest thing to
- *   real "DDoS stats" for this specific zone -- depends on
- *   firewallEventsAdaptiveGroups, which this zone's Free plan may or
- *   may not expose (a prior live test got "zone does not have access to
- *   the path"; Cloudflare's own docs say Free should get a sampled
- *   version). This panel doesn't guess either way -- it reuses
- *   useEdgeAnalytics's EXISTING graceful degradation (data.firewallError)
- *   and shows whichever is actually true at render time, live. */
+ * - "Security Center"-equivalent insights: SSL/TLS status and DNS
+ *   records (both already built, reused here, not duplicated), a basic
+ *   threats-mitigated counter (works on every Cloudflare plan), AND the
+ *   WAF/firewall action+source breakdown below -- the closest thing to
+ *   real zone-specific "DDoS stats."
+ * - RESOLVED 2026-11-08: that breakdown briefly looked plan-gated
+ *   (firewallEventsAdaptiveGroups, the server-side GROUP BY variant,
+ *   returned "zone does not have access to the path" on this Free-plan
+ *   zone) but the RAW firewallEventsAdaptive field works fine, confirmed
+ *   live. worker/api/edge-analytics.ts now computes the breakdown
+ *   itself from raw events instead of asking Cloudflare to group them
+ *   -- same end result. `firewallError` is kept as a genuine fallback
+ *   for real failures (token issues, transient API errors), not a
+ *   permanent "your plan doesn't support this" message anymore. */
 export function SecurityOverviewPanel({ theme, edgeAnalytics, sslStatus, dnsRecords }: Props) {
   const hasFirewallBreakdown = (edgeAnalytics?.firewallActions.length ?? 0) > 0;
 
@@ -53,7 +55,13 @@ export function SecurityOverviewPanel({ theme, edgeAnalytics, sslStatus, dnsReco
         </div>
       </DashboardPanel>
 
-      <DashboardPanel title="WAF / firewall activity" subtitle="7d" span="wide">
+      <DashboardPanel
+        title="WAF / firewall activity"
+        subtitle={
+          hasFirewallBreakdown ? `7d, sampled from ${formatNumber(edgeAnalytics?.firewallSampleSize ?? 0)} events` : "7d"
+        }
+        span="wide"
+      >
         {hasFirewallBreakdown ? (
           <div className="analytics-chart-row">
             <AnalyticsDonutChart
@@ -61,6 +69,12 @@ export function SecurityOverviewPanel({ theme, edgeAnalytics, sslStatus, dnsReco
               theme={theme}
               labels={edgeAnalytics!.firewallActions.map((a) => a.action)}
               values={edgeAnalytics!.firewallActions.map((a) => a.count)}
+            />
+            <AnalyticsDonutChart
+              title="Blocked by"
+              theme={theme}
+              labels={edgeAnalytics!.firewallBySource.map((s) => s.source)}
+              values={edgeAnalytics!.firewallBySource.map((s) => s.count)}
             />
             <AnalyticsTable
               title="Top blocked/challenged paths"
@@ -75,10 +89,8 @@ export function SecurityOverviewPanel({ theme, edgeAnalytics, sslStatus, dnsReco
           </div>
         ) : (
           <p className="empty-state">
-            WAF/firewall event analytics aren't available on this zone's current Cloudflare plan.
-            {edgeAnalytics?.firewallError && <> ({edgeAnalytics.firewallError})</>} The threats-mitigated count
-            above still works on every plan -- this breakdown specifically needs Cloudflare's Security Events
-            dataset, which this zone doesn't currently have access to.
+            WAF/firewall event data unavailable right now
+            {edgeAnalytics?.firewallError ? <>: {edgeAnalytics.firewallError}</> : " (no events in this window)."}
           </p>
         )}
       </DashboardPanel>

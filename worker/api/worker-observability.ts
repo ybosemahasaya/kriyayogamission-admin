@@ -26,6 +26,12 @@ const OBSERVABILITY_QUERY_PATH = (accountId: string) => `/accounts/${accountId}/
 function defaultQueryBody() {
   const now = Date.now();
   return {
+    // Round 2: the first attempt 400'd with a Zod validation error --
+    // "queryId" (string) is required and wasn't in the first guess.
+    // Cloudflare's dashboard likely generates a fresh ID per query it
+    // runs; a random UUID should satisfy "some unique string" without
+    // needing to know what it's actually used for internally.
+    queryId: crypto.randomUUID(),
     timeframe: { from: now - 60 * 60 * 1000, to: now },
     limit: 5,
   };

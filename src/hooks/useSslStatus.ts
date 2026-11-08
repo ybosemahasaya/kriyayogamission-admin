@@ -6,6 +6,7 @@ interface UseSslStatusResult {
   loading: boolean;
   error: string | null;
   notConfigured: boolean;
+  reload: () => void;
 }
 
 /** Same 503 -> "not configured" convention as useAnalytics.ts/
@@ -42,5 +43,5 @@ export function useSslStatus(): UseSslStatusResult {
     load();
   }, [load]);
 
-  return { data, loading, error, notConfigured };
+  return { data, loading, error, notConfigured, reload: load };
 }

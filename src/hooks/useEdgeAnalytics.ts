@@ -6,6 +6,7 @@ interface UseEdgeAnalyticsResult {
   loading: boolean;
   error: string | null;
   notConfigured: boolean;
+  reload: () => void;
 }
 
 /** Mirrors useAnalytics.ts's shape/conventions (503 -> "not configured"
@@ -43,5 +44,5 @@ export function useEdgeAnalytics(range: EdgeAnalyticsRange): UseEdgeAnalyticsRes
     load();
   }, [load]);
 
-  return { data, loading, error, notConfigured };
+  return { data, loading, error, notConfigured, reload: load };
 }

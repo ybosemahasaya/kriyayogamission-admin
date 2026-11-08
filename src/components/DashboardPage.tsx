@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { WORKER_TARGETS } from "../../shared/worker-logs";
 import type { ObservabilityEvent } from "../../shared/worker-observability";
 import { useApiObservability } from "../hooks/useApiObservability";
+import { useDnsRecords } from "../hooks/useDnsRecords";
+import { useEdgeAnalytics } from "../hooks/useEdgeAnalytics";
+import { useSslStatus } from "../hooks/useSslStatus";
 import { useWorkerLogs } from "../hooks/useWorkerLogs";
 import { useWorkerObservability } from "../hooks/useWorkerObservability";
 import type { Theme } from "../hooks/useTheme";
@@ -10,6 +13,7 @@ import { AnalyticsTable } from "./analytics/AnalyticsTable";
 import { DashboardPanel } from "./dashboard/DashboardPanel";
 import { ObservabilityTimeseriesChart } from "./dashboard/ObservabilityTimeseriesChart";
 import { RefreshControl } from "./dashboard/RefreshControl";
+import { SecurityOverviewPanel } from "./dashboard/SecurityOverviewPanel";
 import { StatTile, toneForErrorRate } from "./dashboard/StatTile";
 import { TimeRangeSelector } from "./dashboard/TimeRangeSelector";
 
@@ -80,6 +84,9 @@ export function DashboardPage({ theme }: { theme: Theme }) {
   const productionLogs = useWorkerLogs("production");
   const devLogs = useWorkerLogs("dev");
   const apiObservability = useApiObservability();
+  const edgeAnalytics = useEdgeAnalytics("7d");
+  const sslStatus = useSslStatus();
+  const dnsRecords = useDnsRecords();
 
   // One ref per hook's reload fn, kept current every render without
   // re-subscribing the interval effect below on every data change --
@@ -91,6 +98,9 @@ export function DashboardPage({ theme }: { theme: Theme }) {
     productionLogs: productionLogs.reload,
     devLogs: devLogs.reload,
     apiObservability: apiObservability.reload,
+    edgeAnalytics: edgeAnalytics.reload,
+    sslStatus: sslStatus.reload,
+    dnsRecords: dnsRecords.reload,
   });
   reloaders.current = {
     admin: admin.reload,
@@ -99,6 +109,9 @@ export function DashboardPage({ theme }: { theme: Theme }) {
     productionLogs: productionLogs.reload,
     devLogs: devLogs.reload,
     apiObservability: apiObservability.reload,
+    edgeAnalytics: edgeAnalytics.reload,
+    sslStatus: sslStatus.reload,
+    dnsRecords: dnsRecords.reload,
   };
 
   function refreshAll() {
@@ -108,6 +121,9 @@ export function DashboardPage({ theme }: { theme: Theme }) {
     reloaders.current.productionLogs();
     reloaders.current.devLogs();
     reloaders.current.apiObservability();
+    reloaders.current.edgeAnalytics();
+    reloaders.current.sslStatus();
+    reloaders.current.dnsRecords();
     setLastRefreshedAt(new Date());
   }
 
@@ -222,6 +238,15 @@ export function DashboardPage({ theme }: { theme: Theme }) {
             rows={mergedSlowest.map((r) => eventRow(r.worker, r.event))}
           />
         </DashboardPanel>
+      </div>
+
+      <div className="dashboard-grid">
+        <SecurityOverviewPanel
+          theme={theme}
+          edgeAnalytics={edgeAnalytics.data}
+          sslStatus={sslStatus.data}
+          dnsRecords={dnsRecords.data}
+        />
       </div>
 
       <div className="dashboard-grid">

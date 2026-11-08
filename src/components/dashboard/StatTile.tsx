@@ -33,3 +33,15 @@ export function toneForErrorRate(errors: number, total: number): StatTone {
   if (rate > 0) return "warn";
   return "good";
 }
+
+/** Same urgency bands as SslStatusCard.tsx (the Edge Analytics page's
+ * existing SSL widget) -- kept consistent rather than inventing new
+ * thresholds just because this is a different-looking component.
+ * Cloudflare auto-renews the free universal certificate well before
+ * expiry, so "bad" here is a genuine heads-up, not routine noise. */
+export function toneForSslExpiry(daysUntilExpiry: number | null): StatTone {
+  if (daysUntilExpiry === null) return "neutral";
+  if (daysUntilExpiry < 14) return "bad";
+  if (daysUntilExpiry < 30) return "warn";
+  return "good";
+}

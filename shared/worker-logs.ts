@@ -16,7 +16,19 @@
  * existing ApiObservabilitySection component (shared/api-observability.ts),
  * since that data source already works perfectly. Only Production/Dev
  * need this page's own backend call.
+ *
+ * Round 2: added richer detail (status-code breakdown and error counts
+ * for page views, daily error trend) plus a genuine "API health" panel
+ * for the public site's own /api/contact route -- requests/errors/
+ * latency/status breakdown, same ApiMetricsSummaryDTO shape as the
+ * Admin Panel tab, just sourced from a NEW Analytics Engine dataset
+ * (kym_public_api_metrics) written by the public site's own worker.js
+ * (another explicit-sign-off change to that repo). Reusing the exact
+ * same DTO means the exact same ApiHealthPanel component renders both
+ * without any public-site-specific UI code.
  */
+
+import type { ApiMetricsSummaryDTO } from "./api-observability";
 
 export const WORKER_TARGETS = [
   { key: "admin", label: "Admin Panel", scriptName: "kriyayogamission-admin" },
@@ -39,6 +51,13 @@ export interface PublicSitePathViews {
 export interface PublicSiteDailyPoint {
   date: string;
   views: number;
+  errorViews: number;
+}
+
+export interface PublicSiteStatusBucket {
+  /** "2xx" | "3xx" | "4xx" | "5xx" */
+  bucket: string;
+  count: number;
 }
 
 export interface ContactFunnelOutcome {
@@ -52,9 +71,17 @@ export interface ContactFunnelOutcome {
 export interface PublicSiteLogsSummaryDTO {
   label: string;
   totalPageViews: number;
+  totalErrorViews: number;
   avgLatencyMs: number;
   byPath: PublicSitePathViews[];
   daily: PublicSiteDailyPoint[];
+  statusBuckets: PublicSiteStatusBucket[];
   contactFunnel: ContactFunnelOutcome[];
   totalContactSubmissions: number;
+  /** Genuine API health (requests/errors/latency/status) for the public
+   * site's own /api/contact route -- null until that repo's worker.js
+   * has the PUBLIC_API_METRICS binding deployed and has handled at
+   * least one request, same "not an error, just no data yet" pattern
+   * as everywhere else in this project. */
+  apiHealth: ApiMetricsSummaryDTO | null;
 }

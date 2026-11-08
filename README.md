@@ -279,9 +279,48 @@ What it adds that those pages didn't have:
   100-event sample.
 - **Merged exceptions/slowest-requests tables** across all three
   Workers in one place, each row tagged with which Worker it came from.
+- **Security posture panel** ("Security Center / Radar"-style, custom
+  built, no Grafana/Radar integration) -- see the dedicated section
+  below for the full feasibility verdict.
 
 No new setup required beyond what Workers Observability and Worker Logs
 already need above.
+
+### Security posture (Dashboard's "Security Center / Radar" request)
+
+Requested explicitly as a feasibility-then-implement task: "Security
+posture, threat intel, DDoS stats | Security Center / Radar from
+Cloudflare." Verdict, and what actually shipped:
+
+- **Cloudflare Radar was explicitly skipped.** Radar is a global
+  internet-wide trends product (worldwide attack/traffic patterns) --
+  it has nothing to do with THIS site specifically, confirmed straight
+  from Cloudflare's own docs ("Get access to Cloudflare's data on global
+  Internet traffic"). Building it would be decorative, not actionable,
+  for a small nonprofit's own admin panel. It would also need its own
+  separate token permission (`Account > Radar > Read`) for zero
+  practical benefit.
+- **"Security Center"-equivalent insights that ARE relevant and
+  feasible on this zone's Free plan**: SSL/TLS certificate status, DNS
+  records, and a threats-mitigated counter -- all three already existed
+  as separate Edge Analytics widgets; the new `SecurityOverviewPanel`
+  on the Dashboard just presents them together in the panel-grid style,
+  reusing the exact same hooks/DTOs rather than duplicating them.
+- **The WAF/firewall action breakdown -- the closest thing to real
+  "DDoS stats" for this specific zone** -- depends on Cloudflare's
+  `firewallEventsAdaptiveGroups` GraphQL dataset. There's a genuine,
+  unresolved discrepancy here: Cloudflare's current docs say Free-plan
+  zones get a sampled version of this data, but a live test against
+  this exact zone previously returned "zone does not have access to the
+  path." Rather than guess, the panel reuses `useEdgeAnalytics`'s
+  existing graceful degradation (`data.firewallError`) -- it shows the
+  full breakdown (actions/paths/countries) if Cloudflare ever does
+  return it, and a clear explanation if not, live, without needing a
+  code change either way.
+- A temporary diagnostic, `GET /api/edge-analytics/_debug-firewall`,
+  tests the RAW (non-grouped) `firewallEventsAdaptive` field as a
+  separate data point in that investigation -- safe to delete once
+  settled either way.
 
 ## Branch strategy
 

@@ -6,6 +6,7 @@ interface UseDnsRecordsResult {
   loading: boolean;
   error: string | null;
   notConfigured: boolean;
+  reload: () => void;
 }
 
 /** Same 503 convention as the other Edge Analytics hooks -- loads once
@@ -42,5 +43,5 @@ export function useDnsRecords(): UseDnsRecordsResult {
     load();
   }, [load]);
 
-  return { data, loading, error, notConfigured };
+  return { data, loading, error, notConfigured, reload: load };
 }

@@ -35,11 +35,15 @@ import type { Env } from "../types";
 //   GraphQL dataset that turned out to have no such field at all.
 //
 // Still unverified (no official example shown for a flat, non-nested
-// filter): the exact shape of one entry in `parameters.filters`. Guessed
-// as `{ key, operation, value }`, by analogy with the documented
-// `parameters.havings` shape, which the docs DID show in full. If this
-// 400s on the filter specifically, that one field's shape is the next
-// thing to correct -- everything else above is confirmed, not guessed.
+// filter): the exact shape of one entry in `parameters.filters`.
+// Round 4's Zod error showed a filter entry validates against a UNION
+// of two shapes -- a nested "group" filter (kind/filterCombination/
+// filters) or a simple typed filter -- and ours matched neither
+// because it was missing `type`. Crucially, `key`/`operation`/`value`
+// were NOT flagged as invalid in that same error, meaning those three
+// field names are right -- only the `type` discriminator
+// ("string"|"number"|"boolean", describing the VALUE's type) was
+// missing. Added below.
 const DEFAULT_OBSERVABILITY_PATH = "workers/observability/telemetry/query";
 
 function buildPath(accountId: string, pathOverride: string | null): string {
@@ -59,7 +63,7 @@ function defaultQueryBody() {
     parameters: {
       datasets: [],
       filterCombination: "and",
-      filters: [{ key: "$workers.scriptName", operation: "eq", value: "kriyayogamission" }],
+      filters: [{ type: "string", key: "$workers.scriptName", operation: "eq", value: "kriyayogamission" }],
       limit: 10,
     },
   };

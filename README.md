@@ -326,6 +326,94 @@ Cloudflare." Verdict, and what actually shipped:
   not a permanent "your plan doesn't support this" message anymore,
   since that turned out to be wrong for the raw dataset.
 
+### Dependency security (GitHub Dependabot)
+
+Not a Cloudflare feature at all -- Cloudflare's Security Overview panel
+above covers the EDGE/network layer (WAF, bot mitigation). This is
+about vulnerabilities IN the open-source npm packages this project (and
+the public site) depend on. A plain `npm audit` run on 2026-11-08 found
+0 vulnerabilities in this repo but **22 in the public site's repo (1
+critical, 17 high)**, headlined by several real Astro XSS/SSRF
+advisories -- concrete proof this category was worth setting up, not a
+hypothetical.
+
+**Status as of 2026-11-08: Dependabot alerts + Dependabot security
+updates are both ENABLED** on both repos, via GitHub's own
+Settings -> Code security toggles. Nothing in this codebase controls
+that -- it's a GitHub-side, per-repo setting, not a file or a deploy.
+
+- **Dependabot alerts**: GitHub continuously scans each repo's
+  `package-lock.json` against its Advisory Database and lists any hits
+  under that repo's own Security tab.
+- **Dependabot security updates**: when an alert has a fix available,
+  GitHub auto-opens a PR bumping just that one vulnerable package.
+  Nothing merges automatically -- every such PR still needs the exact
+  same manual `tsc`/build/`wrangler deploy --dry-run` review this
+  project already requires for every other change before promoting
+  `dev` -> `main`.
+- Neither of the two above needed a committed config file.
+
+**Documented for future, deliberately NOT implemented yet:
+`.github/dependabot.yml` ("version updates")**
+
+Separate from the two toggles above -- this is routine freshness
+checking (ALL dependencies, not just ones with a known CVE) on a
+schedule. If/when it becomes worth adding, one file like this per repo:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+```
+
+Why this isn't in yet: both repos have small dependency trees (roughly
+13 total packages here, 5 direct in the public site), and the
+security-relevant case is already covered by the two toggles above --
+version updates would mostly add "stay current" PR noise rather than
+close a real gap. Revisit if the dependency count grows, or if drifting
+behind latest-minor becomes a recurring manual chore.
+
+**Surfacing Dependabot data in THIS admin panel's own Dashboard --
+feasibility notes, not yet built:**
+
+1. **Needs a new, separate credential.** None of this Worker's existing
+   Cloudflare secrets can read GitHub's API -- different platform
+   entirely. Would need a GitHub fine-grained Personal Access Token
+   scoped ONLY to "Dependabot alerts: Read" on the two specific repos,
+   stored as a new Cloudflare secret (e.g. `GITHUB_DEPENDABOT_TOKEN`),
+   same optional-integration pattern as `GA4_*`/`RESEND_API_KEY` --
+   missing it returns a clear 503, nothing else breaks.
+2. **A real permission boundary.** This admin repo is public, so that
+   half is simple. The public site's repo is NOT visible to this
+   project's tooling at all -- confirmed live: an already-authenticated
+   `gh` session on this machine couldn't even resolve that repo's name,
+   because it's owned/administered under a different GitHub account.
+   Whoever administers that account would need to generate the token
+   (or install a GitHub App) and hand it over via a secret, never
+   through chat.
+3. **What the API actually returns**:
+   `GET /repos/{owner}/{repo}/dependabot/alerts` -- severity, package
+   name, advisory ID, affected version range, whether a fix is
+   available. Would be fetched server-side in the Worker, same pattern
+   as `worker/api/worker-observability.ts` fetching Cloudflare's API --
+   the token never reaches the browser.
+4. **What a Dashboard panel would show**: a stat-tile row (open alerts
+   by severity, per repo) plus a table (package, severity, advisory
+   link), same Grafana-styled panel language as the rest of the
+   Dashboard.
+5. **What "taking action" should mean -- and what it shouldn't.**
+   Recommend READ-ONLY plus "open in GitHub" links to the actual
+   alert/PR, NOT an in-dashboard "merge this PR" button. Merging a
+   dependency bump without the same review this project already
+   requires for every other change would be the one place this admin
+   panel could ship an untested change straight to production. A link
+   to GitHub's own Security tab/PR, where the full review flow
+   naturally happens, is the safer version of "act on it from here."
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

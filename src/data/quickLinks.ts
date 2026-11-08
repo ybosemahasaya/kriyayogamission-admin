@@ -72,6 +72,16 @@ export const QUICK_LINKS: QuickLinkGroup[] = [
     ],
   },
   {
+    category: "Spam Protection",
+    links: [
+      {
+        label: "Akismet",
+        url: "https://akismet.com/account/",
+        description: "Spam-filtering API account (e.g. for the public site's contact form)",
+      },
+    ],
+  },
+  {
     category: "Email",
     links: [
       {

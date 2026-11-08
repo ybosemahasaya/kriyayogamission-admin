@@ -377,42 +377,60 @@ version updates would mostly add "stay current" PR noise rather than
 close a real gap. Revisit if the dependency count grows, or if drifting
 behind latest-minor becomes a recurring manual chore.
 
-**Surfacing Dependabot data in THIS admin panel's own Dashboard --
-feasibility notes, not yet built:**
+**Surfacing Dependabot data in THIS admin panel's own Dashboard:**
 
-1. **Needs a new, separate credential.** None of this Worker's existing
-   Cloudflare secrets can read GitHub's API -- different platform
-   entirely. Would need a GitHub fine-grained Personal Access Token
-   scoped ONLY to "Dependabot alerts: Read" on the two specific repos,
-   stored as a new Cloudflare secret (e.g. `GITHUB_DEPENDABOT_TOKEN`),
-   same optional-integration pattern as `GA4_*`/`RESEND_API_KEY` --
-   missing it returns a clear 503, nothing else breaks.
-2. **A real permission boundary.** This admin repo is public, so that
-   half is simple. The public site's repo is NOT visible to this
-   project's tooling at all -- confirmed live: an already-authenticated
-   `gh` session on this machine couldn't even resolve that repo's name,
-   because it's owned/administered under a different GitHub account.
-   Whoever administers that account would need to generate the token
-   (or install a GitHub App) and hand it over via a secret, never
-   through chat.
-3. **What the API actually returns**:
-   `GET /repos/{owner}/{repo}/dependabot/alerts` -- severity, package
-   name, advisory ID, affected version range, whether a fix is
-   available. Would be fetched server-side in the Worker, same pattern
-   as `worker/api/worker-observability.ts` fetching Cloudflare's API --
-   the token never reaches the browser.
-4. **What a Dashboard panel would show**: a stat-tile row (open alerts
-   by severity, per repo) plus a table (package, severity, advisory
-   link), same Grafana-styled panel language as the rest of the
-   Dashboard.
-5. **What "taking action" should mean -- and what it shouldn't.**
-   Recommend READ-ONLY plus "open in GitHub" links to the actual
-   alert/PR, NOT an in-dashboard "merge this PR" button. Merging a
-   dependency bump without the same review this project already
-   requires for every other change would be the one place this admin
-   panel could ship an untested change straight to production. A link
-   to GitHub's own Security tab/PR, where the full review flow
-   naturally happens, is the safer version of "act on it from here."
+**RESOLVED/BLOCKED 2026-11-08: this Worker cannot call `api.github.com`
+at all.** The original plan (Worker fetches
+`GET /repos/{owner}/{repo}/dependabot/alerts` directly, same pattern as
+every other Cloudflare/GA4/Resend integration here) was tested live via
+a temporary unauthenticated diagnostic -- a bare `fetch()` to
+`https://api.github.com/zen`, no token, nothing to go wrong on GitHub's
+side. Result: **HTTP 525 ("SSL Handshake Failed"), Cloudflare's own
+synthesized error**, meaning the connection to github.com never
+completes. This is NOT new -- it's the exact same failure
+`worker/lib/deploy-hook.ts` already documented from this Worker's
+abandoned GitHub-Contents-API deploy trick. A GitHub token would not
+have fixed this; the request never gets far enough to be authenticated
+or rejected. The diagnostic has been removed (its question is answered).
+
+**The actual path forward: push data IN instead of pulling it OUT.**
+The 525 only blocks this Worker's *outbound* calls to github.com --
+inbound requests TO this Worker are completely unaffected (that's a
+different network path entirely). So instead of the Worker calling
+GitHub, GitHub should call the Worker:
+
+1. A small GitHub Actions workflow, committed to each repo (`.github/
+   workflows/dependabot-sync.yml`), triggered on the `dependabot_alert`
+   event (fires the moment an alert is created/fixed/dismissed) and/or
+   a daily `schedule:` cron as a backstop.
+2. The workflow calls `GET /repos/{owner}/{repo}/dependabot/alerts`
+   from GitHub's OWN infrastructure -- using the workflow's automatic,
+   zero-setup `GITHUB_TOKEN` (scoped to just that repo, no manually
+   generated PAT needed at all, since the workflow and the alerts it's
+   reading live in the same repo).
+3. The workflow `POST`s the alert summary as JSON to a new endpoint on
+   this admin Worker, e.g. `POST /api/dependabot-alerts/ingest`,
+   authenticated by a shared-secret bearer token -- the exact same
+   pattern already proven in this codebase by `CONTACT_INGEST_TOKEN`
+   (see `worker/api/public-contact.ts`), where the public site's
+   worker.js pushes contact-form submissions into this admin Worker the
+   same way.
+4. This Worker stores the result in the existing D1 database (one new
+   small table), and the Dashboard panel reads it from D1 via a normal
+   authenticated GET -- no outbound call to github.com anywhere in this
+   Worker, ever.
+5. **"Taking action" stays exactly as scoped before**: READ-ONLY in the
+   Dashboard, plus "open in GitHub" links to the real alert/PR. Nothing
+   about this architecture change affects that call -- it was never
+   about where the data comes from, only about not merging code from
+   inside the dashboard.
+
+Not yet built -- this is the corrected plan, ready to implement on
+request. Needs: one `GITHUB_DEPENDABOT_INGEST_TOKEN`-equivalent shared
+secret (generated by whoever administers the repos, same handoff
+discipline as every other secret here), one new D1 table/migration, one
+new ingest endpoint, one new read endpoint + hook + Dashboard panel, and
+one GitHub Actions workflow file per repo.
 
 ## Branch strategy
 

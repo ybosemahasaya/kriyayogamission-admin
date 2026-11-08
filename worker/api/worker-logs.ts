@@ -89,3 +89,54 @@ export async function handleWorkerLogsRequest(env: Env, key: string): Promise<Re
 
   return json(payload);
 }
+
+// --- Schema introspection, temporary diagnostic tool ---
+//
+// The field-name guess above (workersInvocationsAdaptiveGroups) turned
+// out to be wrong: the live schema returned "unknown field" for it.
+// Rather than guess a SECOND time with the same low confidence, this
+// asks Cloudflare's own GraphQL schema what the real field is, via
+// standard GraphQL introspection (__schema). Filters server-side to
+// just type/field names containing "orker" (matches "Worker"/"worker")
+// so the response stays small instead of forwarding the whole schema.
+// Safe to leave deployed -- read-only, authenticated same as every
+// other /api/* route, costs nothing when not called.
+const INTROSPECTION_QUERY = `
+  query {
+    __schema {
+      types {
+        name
+        fields { name }
+      }
+    }
+  }
+`;
+
+interface IntrospectionField {
+  name: string;
+}
+
+interface IntrospectionType {
+  name: string;
+  fields: IntrospectionField[] | null;
+}
+
+interface IntrospectionResponse {
+  __schema: { types: IntrospectionType[] };
+}
+
+export async function handleWorkerLogsSchemaDebugRequest(env: Env): Promise<Response> {
+  if (!env.CLOUDFLARE_API_TOKEN) {
+    return errorResponse("Worker Logs is not configured yet.", 503);
+  }
+
+  const data = await runCloudflareGraphQL<IntrospectionResponse>(env.CLOUDFLARE_API_TOKEN, INTROSPECTION_QUERY, {});
+
+  const matches = data.__schema.types.flatMap((t) =>
+    (t.fields ?? [])
+      .filter((f) => /orker/.test(f.name))
+      .map((f) => ({ typeName: t.name, fieldName: f.name })),
+  );
+
+  return json(matches);
+}

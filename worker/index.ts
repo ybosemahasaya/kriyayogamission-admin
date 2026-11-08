@@ -179,7 +179,8 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
     // this file.
     if (url.pathname === "/api/worker-logs/_debug-schema" && request.method === "GET") {
       try {
-        return await handleWorkerLogsSchemaDebugRequest(env);
+        const pattern = url.searchParams.get("pattern") ?? "orker";
+        return await handleWorkerLogsSchemaDebugRequest(env, pattern);
       } catch (err) {
         console.error("Worker logs schema debug error:", err);
         const message = err instanceof Error ? err.message : String(err);

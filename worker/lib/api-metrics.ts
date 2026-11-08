@@ -9,7 +9,7 @@ import type { Env } from "../types";
  * one just means that route's own ID-like segments fall back to ":id"
  * too, which is a harmless under-grouping, not a bug. */
 const KNOWN_PATH_SEGMENTS = new Set([
-  "api", "public", "me", "welcome",
+  "api", "public", "me", "welcome", "_debug-github-connectivity",
   "analytics", "realtime", "edge-analytics",
   "cf-ops", "ssl-status", "cache-purge", "dns-records", "access-logs", "zaraz-config",
   "search-console",

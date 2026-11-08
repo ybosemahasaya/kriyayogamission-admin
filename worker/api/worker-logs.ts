@@ -94,26 +94,43 @@ export async function handleWorkerLogsRequest(env: Env, key: string): Promise<Re
 //
 // The field-name guess above (workersInvocationsAdaptiveGroups) turned
 // out to be wrong: the live schema returned "unknown field" for it.
-// Rather than guess a SECOND time with the same low confidence, this
-// asks Cloudflare's own GraphQL schema what the real field is, via
-// standard GraphQL introspection (__schema). Filters server-side to
-// just type/field names containing "orker" (matches "Worker"/"worker")
-// so the response stays small instead of forwarding the whole schema.
-// Safe to leave deployed -- read-only, authenticated same as every
-// other /api/* route, costs nothing when not called.
+// Confirmed-real top-level field via a first round of this same tool:
+// workersInvocationsByOwnerAndScriptGroups (groups by script, exactly
+// what's needed to tell the three Workers apart). This second mode
+// drills into that field's return type and every related nested type
+// (Dimensions/Sum/Avg/Quantiles/Uniq, following Cloudflare's own naming
+// convention -- confirmed by AccountWorkersInvocationsByOwnerAndScript
+// GroupsUniq showing up in the first round) so the real query can be
+// written against the real shape instead of guessing a third time.
+// Safe to leave deployed permanently -- read-only, authenticated same
+// as every other /api/* route, costs nothing when not called.
 const INTROSPECTION_QUERY = `
   query {
     __schema {
       types {
         name
-        fields { name }
+        fields {
+          name
+          type {
+            kind
+            name
+            ofType { kind name ofType { kind name } }
+          }
+        }
       }
     }
   }
 `;
 
+interface IntrospectionTypeRef {
+  kind: string;
+  name: string | null;
+  ofType: { kind: string; name: string | null; ofType: { kind: string; name: string | null } | null } | null;
+}
+
 interface IntrospectionField {
   name: string;
+  type: IntrospectionTypeRef;
 }
 
 interface IntrospectionType {
@@ -125,18 +142,35 @@ interface IntrospectionResponse {
   __schema: { types: IntrospectionType[] };
 }
 
-export async function handleWorkerLogsSchemaDebugRequest(env: Env): Promise<Response> {
+function unwrapTypeName(ref: IntrospectionTypeRef): string {
+  return ref.name ?? ref.ofType?.name ?? ref.ofType?.ofType?.name ?? ref.kind;
+}
+
+export async function handleWorkerLogsSchemaDebugRequest(env: Env, pattern: string): Promise<Response> {
   if (!env.CLOUDFLARE_API_TOKEN) {
     return errorResponse("Worker Logs is not configured yet.", 503);
   }
 
   const data = await runCloudflareGraphQL<IntrospectionResponse>(env.CLOUDFLARE_API_TOKEN, INTROSPECTION_QUERY, {});
+  const needle = new RegExp(pattern, "i");
 
-  const matches = data.__schema.types.flatMap((t) =>
+  // Default mode (no ?type= param): field names on ANY type matching
+  // the pattern -- good for an initial "does this field exist" sweep.
+  // With ?type=: full field list (name + resolved type) of every TYPE
+  // whose own name matches -- good for learning one dataset's exact
+  // shape once you already know its top-level field name.
+  const byType = data.__schema.types
+    .filter((t) => needle.test(t.name))
+    .map((t) => ({
+      typeName: t.name,
+      fields: (t.fields ?? []).map((f) => ({ fieldName: f.name, type: unwrapTypeName(f.type) })),
+    }));
+
+  const byField = data.__schema.types.flatMap((t) =>
     (t.fields ?? [])
-      .filter((f) => /orker/.test(f.name))
-      .map((f) => ({ typeName: t.name, fieldName: f.name })),
+      .filter((f) => needle.test(f.name))
+      .map((f) => ({ typeName: t.name, fieldName: f.name, type: unwrapTypeName(f.type) })),
   );
 
-  return json(matches);
+  return json({ byType, byField });
 }

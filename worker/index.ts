@@ -5,6 +5,7 @@ import { handleWorkerLogsRequest } from "./api/worker-logs";
 import { handleObservabilityDebugRequest, handleWorkerObservabilityRequest } from "./api/worker-observability";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
+import { handleGithubConnectivityDebugRequest } from "./api/github-connectivity-debug";
 import { handleContactsRequest } from "./api/contacts";
 import { handleEmailMetricsRequest } from "./api/email-metrics";
 import { handleBulkGalleryRequest, handleGalleryRequest } from "./api/gallery";
@@ -401,6 +402,19 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
       } catch (err) {
         console.error("Gallery API error:", err);
         return errorResponse("Internal server error", 500);
+      }
+    }
+
+    // Temporary diagnostic -- see the top-of-file comment in
+    // worker/api/github-connectivity-debug.ts. Re-tests whether this
+    // Worker can reach api.github.com at all before any Dependabot
+    // integration work proceeds. Safe to delete once answered.
+    if (url.pathname === "/api/_debug-github-connectivity" && request.method === "GET") {
+      try {
+        return await handleGithubConnectivityDebugRequest();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
       }
     }
 

@@ -11,28 +11,35 @@ import type { Env } from "../types";
 // is already collecting this data, the only open question is how to
 // read it back out programmatically.
 //
-// HONEST CAVEAT, bigger than usual: the exact endpoint path and request
-// body shape below are a BEST GUESS based on general knowledge of
-// Cloudflare's REST API conventions, not a verified schema. Unlike the
-// GraphQL dead end, there's no introspection available for a plain REST
-// endpoint -- so this diagnostic handler accepts an optional raw JSON
-// body via ?body=<url-encoded-json> AND an optional path suffix via
-// ?path=<suffix>, letting both the request shape and the endpoint
-// itself be iterated on by just changing the query string and
-// refreshing, rather than needing a new code change + deploy for every
-// attempt. Always returns both what was SENT and what came back
-// (success or error), so each round is self-documenting.
+// CONFIRMED via official docs (fetched live by the web-retriever agent
+// from https://developers.cloudflare.com/api/resources/workers/subresources/observability/subresources/telemetry/methods/query
+// and the Query Builder page, since Cloudflare's dashboard-facing docs
+// for this one aren't as easy to find/guess as the zone-level APIs):
 //
-// Round 3 context: "telemetry/query" DOES exist (confirmed -- it
-// validates its body with Zod and returned a specific "queryId
-// required" error, not a 404). But a random client-generated queryId
-// gets "Query not found", suggesting this might be a two-step API:
-// register/create a query somewhere else first (which hands back a
-// server-generated queryId), then fetch results here using that ID --
-// rather than one-shot ad-hoc querying. ?path= exists specifically to
-// test that theory against candidate paths like
-// "workers/observability/telemetry/queries" (plural, maybe the create
-// endpoint) without a redeploy per guess.
+// - Endpoint: POST /accounts/{account_id}/workers/observability/telemetry/query
+// - Required permission: "Workers Observability Write" (not "Read" --
+//   counter-intuitive for a read-only query, but that's what the
+//   official API reference names. Add it to the Account-scoped policy
+//   row if "Read" alone 403s.)
+// - queryId behavior (this is what "Query not found" meant in round 3):
+//   when `parameters` is OMITTED, queryId must reference a previously
+//   SAVED query (e.g. one created in the dashboard). For ad-hoc
+//   queries, `parameters` must be supplied -- then queryId can be any
+//   string at all, just an identifier for this one-off run.
+// - `view` controls what's returned: "events" (individual log lines),
+//   "calculations" (aggregates), "invocations" (grouped by request ID),
+//   "traces" (distributed trace summaries -- what we actually want),
+//   "agents".
+// - Each event/trace carries a `$workers.scriptName` field -- CONFIRMED
+//   real, meaning per-script filtering genuinely works here, unlike the
+//   GraphQL dataset that turned out to have no such field at all.
+//
+// Still unverified (no official example shown for a flat, non-nested
+// filter): the exact shape of one entry in `parameters.filters`. Guessed
+// as `{ key, operation, value }`, by analogy with the documented
+// `parameters.havings` shape, which the docs DID show in full. If this
+// 400s on the filter specifically, that one field's shape is the next
+// thing to correct -- everything else above is confirmed, not guessed.
 const DEFAULT_OBSERVABILITY_PATH = "workers/observability/telemetry/query";
 
 function buildPath(accountId: string, pathOverride: string | null): string {
@@ -43,14 +50,18 @@ function buildPath(accountId: string, pathOverride: string | null): string {
 function defaultQueryBody() {
   const now = Date.now();
   return {
-    // Round 2: the first attempt 400'd with a Zod validation error --
-    // "queryId" (string) is required and wasn't in the first guess.
-    // Cloudflare's dashboard likely generates a fresh ID per query it
-    // runs; a random UUID should satisfy "some unique string" without
-    // needing to know what it's actually used for internally.
-    queryId: crypto.randomUUID(),
+    // Any string is fine here now that `parameters` is present -- this
+    // is an ad-hoc query, not a reference to a saved one.
+    queryId: "admin-panel-ad-hoc-test",
     timeframe: { from: now - 60 * 60 * 1000, to: now },
-    limit: 5,
+    view: "traces",
+    limit: 10,
+    parameters: {
+      datasets: [],
+      filterCombination: "and",
+      filters: [{ key: "$workers.scriptName", operation: "eq", value: "kriyayogamission" }],
+      limit: 10,
+    },
   };
 }
 

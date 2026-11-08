@@ -2,6 +2,7 @@ import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from ".
 import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest, handleZarazConfigRequest } from "./api/cf-ops";
 import { handleApiObservabilityRequest } from "./api/api-observability";
 import { handleWorkerLogsRequest } from "./api/worker-logs";
+import { handleObservabilityDebugRequest } from "./api/worker-observability";
 import { handleContactMessagesBackfillRequest, handleContactMessagesRequest } from "./api/contact-messages";
 import { handleEdgeAnalyticsRequest } from "./api/edge-analytics";
 import { handleContactsRequest } from "./api/contacts";
@@ -172,11 +173,26 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
       }
     }
 
-    const workerLogsMatch = url.pathname.match(/^\/api\/worker-logs\/([^/]+)$/);if (workerLogsMatch && request.method === "GET") {
+    const workerLogsMatch = url.pathname.match(/^\/api\/worker-logs\/([^/]+)$/);
+    if (workerLogsMatch && request.method === "GET") {
       try {
         return await handleWorkerLogsRequest(env, workerLogsMatch[1]);
       } catch (err) {
         console.error("Worker logs API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Temporary diagnostic route for Workers Observability (tail-based
+    // tracing) -- see the top-of-file comment in
+    // worker/api/worker-observability.ts. ?body= lets the request shape
+    // be iterated on via query string instead of a redeploy per attempt.
+    if (url.pathname === "/api/worker-observability/_debug" && request.method === "GET") {
+      try {
+        return await handleObservabilityDebugRequest(env, url.searchParams.get("body"));
+      } catch (err) {
+        console.error("Worker observability debug error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

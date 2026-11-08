@@ -1,15 +1,12 @@
 import type { ObservabilityEvent } from "../../../shared/worker-observability";
 import type { WorkerTargetKey } from "../../../shared/worker-logs";
 import { useWorkerObservability } from "../../hooks/useWorkerObservability";
+import { formatIstDateTime } from "../../lib/format";
 import { AnalyticsTable } from "../analytics/AnalyticsTable";
-
-function formatTimestamp(ms: number): string {
-  return new Date(ms).toLocaleString();
-}
 
 function eventRow(e: ObservabilityEvent): string[] {
   return [
-    formatTimestamp(e.timestamp),
+    formatIstDateTime(e.timestamp),
     e.outcome ?? e.level,
     e.method ?? "",
     e.path ?? e.message,

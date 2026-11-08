@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Line } from "react-chartjs-2";
 import type { ObservabilitySeriesPoint } from "../../../shared/worker-observability";
 import type { Theme } from "../../hooks/useTheme";
+import { formatIstDate, formatIstTime, parseCloudflareUtcString } from "../../lib/format";
 import { readThemeColors } from "../../lib/theme-colors";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
@@ -13,16 +14,16 @@ interface Props {
   hours: number;
 }
 
-// Cloudflare returns bucket labels as "YYYY-MM-DD HH:mm:ss" -- a short
-// window shows just the time-of-day (otherwise every label would be the
-// same date and tell you nothing); a longer window shows the date
-// instead, since time-of-day stops being the interesting axis.
+// Cloudflare returns bucket labels as "YYYY-MM-DD HH:mm:ss" IN UTC -- a
+// short window shows just the time-of-day (otherwise every label would
+// be the same date and tell you nothing); a longer window shows the
+// date instead, since time-of-day stops being the interesting axis.
+// Always displayed in IST (see lib/format.ts) regardless of what UTC
+// bucket Cloudflare actually used internally.
 function formatLabel(time: string, hours: number): string {
-  const date = new Date(time.replace(" ", "T"));
-  if (Number.isNaN(date.getTime())) return time;
-  return hours <= 24
-    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const date = parseCloudflareUtcString(time);
+  if (!date) return time;
+  return hours <= 24 ? formatIstTime(date) : formatIstDate(date);
 }
 
 /** Grafana's signature panel type: requests and errors over time, for

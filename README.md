@@ -251,6 +251,38 @@ A permanent diagnostic tool survives at `GET /api/worker-observability/_debug`
 shifts again -- safe to leave deployed, read-only, same Access gate as
 everything else.
 
+### Dashboard (Grafana-styled, not a Grafana integration)
+
+A new sidebar page (`DashboardPage.tsx`) that presents a unified,
+panel-grid overview across all three Workers -- explicitly requested as
+"a Grafana-like view, custom developed, no actual Grafana." It fetches
+NO new data: it's a different arrangement of the exact same hooks
+(`useWorkerObservability`, `useWorkerLogs`, `useApiObservability`)
+already used on the Worker Logs / Edge Analytics pages.
+
+What it adds that those pages didn't have:
+
+- **Shared time-range selector** (1h/6h/24h/7d/30d) -- genuinely wired
+  end-to-end into `useWorkerObservability`'s new `hoursWindow` param and
+  `worker/api/worker-observability.ts`'s new `?hours=` query param. The
+  SQL-backed traffic/contact-funnel/API-health panels below it keep
+  their own fixed windows (each says so in its own subtitle) rather
+  than pretending the selector touches data it structurally can't yet.
+- **Auto-refresh control** (Off/30s/1m/5m) plus a manual "Refresh now"
+  button -- calls every panel's `reload()` on an interval.
+- **Stat tiles** with color-coded severity (green/amber/red by error
+  rate) for request/error counts per Worker.
+- **Time-series charts** per Worker, built from Cloudflare's own
+  server-side time-bucketed aggregation (the `series` field on the
+  Workers Observability response -- see `shared/worker-observability.ts`'s
+  `ObservabilitySeriesPoint`), not a client-side count of the capped
+  100-event sample.
+- **Merged exceptions/slowest-requests tables** across all three
+  Workers in one place, each row tagged with which Worker it came from.
+
+No new setup required beyond what Workers Observability and Worker Logs
+already need above.
+
 ## Branch strategy
 
 Mirrors the public site: `dev` for active work, `main` for production,

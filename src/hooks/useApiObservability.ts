@@ -6,6 +6,7 @@ interface UseApiObservabilityResult {
   loading: boolean;
   error: string | null;
   notConfigured: boolean;
+  reload: () => void;
 }
 
 /** Same pattern as the other Edge Analytics hooks. Fixed 7-day window
@@ -43,5 +44,5 @@ export function useApiObservability(): UseApiObservabilityResult {
     load();
   }, [load]);
 
-  return { data, loading, error, notConfigured };
+  return { data, loading, error, notConfigured, reload: load };
 }

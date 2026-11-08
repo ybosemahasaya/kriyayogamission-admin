@@ -1191,6 +1191,143 @@
   border-bottom: none;
 }
 
+/* Dashboard (Grafana-STYLED, not a Grafana integration -- see
+   src/components/DashboardPage.tsx). Reuses .analytics-page /
+   .analytics-chart-canvas-wrap* / .analytics-table / .btn-secondary /
+   .category-select from elsewhere in this file; only the panel-grid and
+   stat-tile primitives below are new. */
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dashboard-time-range {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.dashboard-time-range-btn {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dashboard-time-range-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.dashboard-refresh-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dashboard-last-refreshed {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.dashboard-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.dashboard-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-panel-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dashboard-panel-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dashboard-panel-body {
+  padding: 1.1rem;
+}
+
+.dashboard-stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.dashboard-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dashboard-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.dashboard-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.dashboard-stat-detail {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dashboard-stat-good .dashboard-stat-value {
+  color: #34d399;
+}
+
+.dashboard-stat-warn .dashboard-stat-value {
+  color: #f59e0b;
+}
+
+.dashboard-stat-bad .dashboard-stat-value {
+  color: var(--danger);
+}
+
 /* Mini Site Audit (see docs/admin-panel-architecture.html's "mini-site-audit"
    roadmap item). Reuses analytics-kpi-* / analytics-chart-row /
    analytics-table classes above for the KPI cards and tables -- only the

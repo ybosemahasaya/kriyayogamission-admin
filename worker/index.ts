@@ -206,7 +206,7 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
     const observabilityMatch = url.pathname.match(/^\/api\/worker-observability\/([^/]+)$/);
     if (observabilityMatch && request.method === "GET") {
       try {
-        return await handleWorkerObservabilityRequest(env, observabilityMatch[1]);
+        return await handleWorkerObservabilityRequest(env, observabilityMatch[1], url.searchParams.get("hours"));
       } catch (err) {
         console.error("Worker observability API error:", err);
         const message = err instanceof Error ? err.message : String(err);

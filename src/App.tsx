@@ -4,6 +4,7 @@ import { listCategories } from "./api/gallery-categories";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { BulkEditModal } from "./components/BulkEditModal";
 import { ContactMessagesPage } from "./components/ContactMessagesPage";
+import { DashboardPage } from "./components/DashboardPage";
 import { EditImageModal } from "./components/EditImageModal";
 import { EdgeAnalyticsPage } from "./components/EdgeAnalyticsPage";
 import { Ga4Page } from "./components/Ga4Page";
@@ -166,6 +167,17 @@ function App() {
               </p>
             </header>
             <WorkerLogsPage theme={theme} />
+          </>
+        ) : view === "dashboard" ? (
+          <>
+            <header className="main-header">
+              <h1>Dashboard</h1>
+              <p>
+                A unified, Grafana-styled overview across all three Workers -- request volume, errors, and
+                exceptions, with a shared time range and auto-refresh.
+              </p>
+            </header>
+            <DashboardPage theme={theme} />
           </>
         ) : view === "site-audit" ? (
           <>

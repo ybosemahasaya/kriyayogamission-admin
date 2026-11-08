@@ -5,7 +5,7 @@ import { useApiObservability } from "../hooks/useApiObservability";
 import { useWorkerLogs } from "../hooks/useWorkerLogs";
 import { useWorkerObservability } from "../hooks/useWorkerObservability";
 import type { Theme } from "../hooks/useTheme";
-import { formatNumber, formatPercent } from "../lib/format";
+import { formatIstDateTime, formatNumber, formatPercent } from "../lib/format";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
 import { DashboardPanel } from "./dashboard/DashboardPanel";
 import { ObservabilityTimeseriesChart } from "./dashboard/ObservabilityTimeseriesChart";
@@ -15,7 +15,7 @@ import { TimeRangeSelector } from "./dashboard/TimeRangeSelector";
 
 function eventRow(workerLabel: string, e: ObservabilityEvent): string[] {
   return [
-    new Date(e.timestamp).toLocaleString(),
+    formatIstDateTime(e.timestamp),
     workerLabel,
     e.outcome ?? e.level,
     e.path ?? e.message,
@@ -155,7 +155,12 @@ export function DashboardPage({ theme }: { theme: Theme }) {
         {WORKER_TARGETS.map((target) => {
           const hook = target.key === "admin" ? admin : target.key === "production" ? production : dev;
           return (
-            <DashboardPanel key={target.key} title={`${target.label} -- requests & errors`} span="wide">
+            <DashboardPanel
+              key={target.key}
+              title={`${target.label} -- requests & errors`}
+              subtitle="times in IST"
+              span="wide"
+            >
               {hook.notConfigured ? (
                 <p className="empty-state">Not configured.</p>
               ) : hook.loading ? (
@@ -171,14 +176,14 @@ export function DashboardPage({ theme }: { theme: Theme }) {
       </div>
 
       <div className="dashboard-grid">
-        <DashboardPanel title="Recent exceptions (all Workers)" subtitle={`last ${hours}h`} span="wide">
+        <DashboardPanel title="Recent exceptions (all Workers)" subtitle={`last ${hours}h, IST`} span="wide">
           <AnalyticsTable
             title=""
             columns={MERGED_EVENT_COLUMNS}
             rows={mergedExceptions.map((r) => eventRow(r.worker, r.event))}
           />
         </DashboardPanel>
-        <DashboardPanel title="Slowest requests (all Workers)" subtitle={`last ${hours}h`} span="wide">
+        <DashboardPanel title="Slowest requests (all Workers)" subtitle={`last ${hours}h, IST`} span="wide">
           <AnalyticsTable
             title=""
             columns={MERGED_EVENT_COLUMNS}

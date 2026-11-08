@@ -1,3 +1,5 @@
+import { formatIstTime } from "../../lib/format";
+
 export const REFRESH_OPTIONS = [
   { label: "Off", seconds: 0 },
   { label: "30s", seconds: 30 },
@@ -35,9 +37,7 @@ export function RefreshControl({ seconds, onChange, onRefreshNow, lastRefreshedA
           </option>
         ))}
       </select>
-      {lastRefreshedAt && (
-        <span className="dashboard-last-refreshed">Updated {lastRefreshedAt.toLocaleTimeString()}</span>
-      )}
+      {lastRefreshedAt && <span className="dashboard-last-refreshed">Updated {formatIstTime(lastRefreshedAt)} IST</span>}
     </div>
   );
 }

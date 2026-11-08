@@ -61,3 +61,41 @@ export function formatBytes(bytes: number): string {
   const value = bytes / 1024 ** exponent;
   return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
+
+/** Kriya Yoga Mission is an India-based org and every admin using this
+ * panel is in IST -- timestamps are shown in IST explicitly, not
+ * whatever timezone the browser/OS happens to be set to, so the
+ * dashboard reads the same way for everyone regardless of device
+ * settings. */
+const IST_TIME_ZONE = "Asia/Kolkata";
+
+/** Workers Observability's `series` bucket labels come back from
+ * Cloudflare as "YYYY-MM-DD HH:mm:ss" IN UTC, with no "Z" suffix or
+ * offset. `new Date("2026-11-08T09:12:00")` (no timezone marker) is
+ * parsed by JS as LOCAL time, not UTC -- so without this fix, a UTC
+ * bucket time got silently treated as if it were already IST, showing
+ * times hours behind the real current IST time. Appending "Z" forces
+ * the correct UTC interpretation before converting to IST for display. */
+export function parseCloudflareUtcString(utcString: string): Date | null {
+  const date = new Date(`${utcString.replace(" ", "T")}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** For values that are already unambiguous instants (epoch ms, or a
+ * real `Date`) -- no UTC-vs-local parsing ambiguity here, just forcing
+ * the DISPLAY timezone to IST regardless of the viewer's own device
+ * settings. */
+export function formatIstDateTime(value: number | Date): string {
+  const date = typeof value === "number" ? new Date(value) : value;
+  return date.toLocaleString("en-IN", { timeZone: IST_TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
+}
+
+export function formatIstTime(value: number | Date): string {
+  const date = typeof value === "number" ? new Date(value) : value;
+  return date.toLocaleTimeString("en-IN", { timeZone: IST_TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+}
+
+export function formatIstDate(value: number | Date): string {
+  const date = typeof value === "number" ? new Date(value) : value;
+  return date.toLocaleDateString("en-IN", { timeZone: IST_TIME_ZONE, month: "short", day: "numeric" });
+}

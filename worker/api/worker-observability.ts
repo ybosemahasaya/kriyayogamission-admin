@@ -1,3 +1,5 @@
+import { WORKER_TARGETS } from "../../shared/worker-logs";
+import type { ObservabilityEvent, WorkerObservabilitySummaryDTO } from "../../shared/worker-observability";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
 
@@ -127,4 +129,110 @@ export async function handleObservabilityDebugRequest(
     httpStatus: res.status,
     response: parsed,
   });
+}
+
+// --- The REAL feature, now that the request shape is confirmed ---
+//
+// Deliberately loose/partial typing on the raw event shape below -- the
+// full $workers.event.request.cf object alone has 50+ fields (TLS
+// fingerprints, geolocation, etc.) that this feature has zero interest
+// in. Only the handful of fields actually displayed are typed; anything
+// else is implicitly `any` via optional chaining, which is the right
+// trade-off for a third-party API response this large rather than
+// hand-writing an exhaustive interface nobody will read.
+interface RawObservabilityEvent {
+  timestamp: number;
+  source?: { level?: string; message?: string };
+  $metadata?: { level?: string; message?: string; requestId?: string };
+  $workers?: {
+    outcome?: string;
+    wallTimeMs?: number;
+    cpuTimeMs?: number;
+    event?: {
+      path?: string;
+      request?: { method?: string };
+      response?: { status?: number };
+    };
+  };
+}
+
+interface ObservabilityQueryResult {
+  result?: { events?: { events?: RawObservabilityEvent[] } };
+}
+
+function mapEvent(e: RawObservabilityEvent): ObservabilityEvent {
+  return {
+    timestamp: e.timestamp,
+    level: e.source?.level ?? e.$metadata?.level ?? "info",
+    message: e.source?.message ?? e.$metadata?.message ?? "",
+    path: e.$workers?.event?.path ?? null,
+    method: e.$workers?.event?.request?.method ?? null,
+    status: e.$workers?.event?.response?.status ?? null,
+    outcome: e.$workers?.outcome ?? null,
+    wallTimeMs: e.$workers?.wallTimeMs ?? null,
+    cpuTimeMs: e.$workers?.cpuTimeMs ?? null,
+    requestId: e.$metadata?.requestId ?? null,
+  };
+}
+
+export async function handleWorkerObservabilityRequest(env: Env, key: string): Promise<Response> {
+  const target = WORKER_TARGETS.find((t) => t.key === key);
+  if (!target) return errorResponse("Unknown Worker.", 404);
+
+  if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
+    return errorResponse("Worker Observability is not configured yet.", 503);
+  }
+
+  const now = Date.now();
+  // ONE query per Worker, not three -- both "exceptions" and "slowest
+  // requests" below are derived from this SAME 100-event sample rather
+  // than risking two more unverified filter/orderBy combinations (the
+  // confirmed-working shape has no orderBy tested at all; events come
+  // back newest-first by default, which is good enough to sample from).
+  const requestBody = {
+    queryId: `worker-observability-${key}`,
+    timeframe: { from: now - 7 * 24 * 60 * 60 * 1000, to: now },
+    view: "events",
+    limit: 100,
+    parameters: {
+      datasets: [],
+      filterCombination: "and",
+      filters: [{ type: "string", key: "$workers.scriptName", operation: "eq", value: target.scriptName }],
+      limit: 100,
+    },
+  };
+
+  const path = buildPath(env.CLOUDFLARE_ACCOUNT_ID, null);
+  const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Workers Observability query failed: ${res.status} ${text}`);
+  }
+
+  const body = (await res.json()) as ObservabilityQueryResult;
+  const rawEvents = body.result?.events?.events ?? [];
+  const events = rawEvents.map(mapEvent);
+
+  // "ok" is the normal/healthy outcome -- anything else (exception,
+  // exceededCpu, canceled, etc.) is what "exceptions" means here.
+  const recentExceptions = events.filter((e) => e.outcome && e.outcome !== "ok").slice(0, 20);
+  const slowestRequests = [...events].sort((a, b) => (b.wallTimeMs ?? 0) - (a.wallTimeMs ?? 0)).slice(0, 10);
+  const recentEvents = events.slice(0, 20);
+
+  const payload: WorkerObservabilitySummaryDTO = {
+    scriptName: target.scriptName,
+    recentExceptions,
+    slowestRequests,
+    recentEvents,
+  };
+
+  return json(payload);
 }

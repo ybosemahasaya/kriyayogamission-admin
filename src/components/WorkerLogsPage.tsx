@@ -4,6 +4,7 @@ import { ApiObservabilitySection } from "./edge-analytics/ApiObservabilitySectio
 import { ApiRequestsChart } from "./edge-analytics/ApiRequestsChart";
 import { ApiHealthPanel } from "./analytics/ApiHealthPanel";
 import { AnalyticsDonutChart } from "./analytics/AnalyticsDonutChart";
+import { ObservabilityEventsSection } from "./analytics/ObservabilityEventsSection";
 import { useWorkerLogs } from "../hooks/useWorkerLogs";
 import { formatNumber } from "../lib/format";
 import { AnalyticsTable } from "./analytics/AnalyticsTable";
@@ -15,7 +16,13 @@ import type { Theme } from "../hooks/useTheme";
  * own API, which reads the public site's own Analytics Engine data
  * (page views, contact-form funnel, and its own API health), since
  * Cloudflare's built-in Workers invocation stats turned out unable to
- * distinguish one script from another at the account level. */
+ * distinguish one script from another at the account level.
+ *
+ * ObservabilityEventsSection (request traces/exceptions/slow spans) is
+ * shown on ALL THREE tabs, not just the public-site ones -- unlike the
+ * data above, it's Cloudflare's own built-in per-script event stream,
+ * which exists for every Worker regardless of whether it writes custom
+ * Analytics Engine data. See shared/worker-observability.ts. */
 export function WorkerLogsPage({ theme }: { theme: Theme }) {
   const [activeKey, setActiveKey] = useState<WorkerTargetKey>(WORKER_TARGETS[0].key);
 
@@ -39,6 +46,8 @@ export function WorkerLogsPage({ theme }: { theme: Theme }) {
       ) : (
         <PublicSiteTab key={activeKey} targetKey={activeKey} theme={theme} />
       )}
+
+      <ObservabilityEventsSection key={`${activeKey}-observability`} targetKey={activeKey} />
     </div>
   );
 }

@@ -29,7 +29,7 @@ import "./App.css";
 type Tab = "published" | "drafts";
 
 function App() {
-  const [view, setView] = useState<SidebarView>("gallery");
+  const [view, setView] = useState<SidebarView>("dashboard");
   const [images, setImages] = useState<GalleryImageDTO[]>([]);
   const [categories, setCategories] = useState<GalleryCategoryDTO[]>([]);
   const [loading, setLoading] = useState(true);

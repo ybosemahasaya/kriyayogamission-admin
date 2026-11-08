@@ -1,5 +1,6 @@
-import type { ApiDailyPoint, ApiMetricsSummaryDTO, ApiRouteMetric, ApiStatusBucket } from "../../shared/api-observability";
+import type { ApiDailyPoint, ApiMetricsSummaryDTO, ApiRouteMetric } from "../../shared/api-observability";
 import { queryAnalyticsEngine } from "../lib/analytics-engine-client";
+import { bucketStatuses, type StatusCountRow } from "../lib/status-buckets";
 import { errorResponse, json } from "../lib/http";
 import type { Env } from "../types";
 
@@ -29,10 +30,7 @@ interface DailyRow {
   errors: number;
 }
 
-interface StatusRow {
-  status: number;
-  count: number;
-}
+interface StatusRow extends StatusCountRow {}
 
 // SUM(_sample_interval) rather than COUNT(*) -- Analytics Engine applies
 // adaptive sampling at high write volume, and _sample_interval is how
@@ -93,15 +91,6 @@ const STATUS_SQL = `
   GROUP BY status
   ORDER BY status ASC
 `;
-
-function bucketStatuses(rows: StatusRow[]): ApiStatusBucket[] {
-  const buckets = new Map<string, number>();
-  for (const row of rows) {
-    const bucket = `${Math.floor(row.status / 100)}xx`;
-    buckets.set(bucket, (buckets.get(bucket) ?? 0) + row.count);
-  }
-  return [...buckets.entries()].map(([bucket, count]) => ({ bucket, count })).sort((a, b) => a.bucket.localeCompare(b.bucket));
-}
 
 export async function handleApiObservabilityRequest(env: Env): Promise<Response> {
   if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {

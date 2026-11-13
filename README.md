@@ -131,6 +131,42 @@ already documents its Zaraz/GA4 setup elsewhere.
   "unknown" as its type, that's a mapping fix, not a sign the
   permission is wrong.
 
+#### Adding admin-access self-service (Profile > "Admin panel access")
+
+Lets an already-authenticated admin add or remove emails from the
+**same** "AdminPanel allowlist" Access policy that gates this whole
+domain, straight from Profile in the top-right corner -- no more
+switching to the Cloudflare dashboard just to grant a new teammate
+access. See `worker/api/access-policy.ts`.
+
+This is a WRITE action on the policy that controls who can reach this
+entire app, so treat the token permission below deliberately -- it's
+scoped to editing Access policies specifically, nothing broader.
+
+1. Reuses the SAME `CLOUDFLARE_ACCOUNT_ID`/`CLOUDFLARE_API_TOKEN` pair
+   and the SAME Account-scoped policy row you already created for
+   Access audit logs/API observability above -- just one more
+   permission on that row, no new secret.
+2. On the `admin-panel-edge-analytics` token -> Edit -> find that
+   Account-scoped policy row -> add **Access: Apps and Policies: Edit**
+   (distinct from "Access: Audit Logs: Read", which is read-only and
+   can't touch policy config).
+3. Add `CLOUDFLARE_ACCESS_POLICY_ID` to `wrangler.jsonc`'s `vars` block
+   -- the id of the reusable "AdminPanel allowlist" policy itself,
+   visible in its own Cloudflare dashboard URL (Access -> Policies ->
+   that policy -> the `/access-controls/policies/{this-id}/edit` URL).
+   Not sensitive, same reasoning as `CLOUDFLARE_ZONE_ID`.
+4. Save. Deploy.
+
+**Built-in safety rails** (enforced server-side, not just in the UI):
+
+- Removing the LAST remaining email in the policy is rejected outright
+  -- that would either lock everyone out or leave the policy matching
+  nothing, depending on how Cloudflare treats an empty Include list.
+- Removing your OWN currently-authenticated email is rejected -- no
+  accidentally locking yourself out of the panel you're sitting in.
+- Adding an email already on the list is a silent no-op, not an error.
+
 ### Admin API observability (Workers Analytics Engine)
 
 A DIFFERENT Cloudflare product from everything above -- not Cloudflare's

@@ -1,5 +1,6 @@
 import { handleAnalyticsRealtimeRequest, handleAnalyticsSummaryRequest } from "./api/analytics";
 import { handleAccessLoginsRequest, handleCachePurgeRequest, handleDnsRecordsRequest, handleSslStatusRequest, handleZarazConfigRequest } from "./api/cf-ops";
+import { handleAccessPolicyEmailsRequest } from "./api/access-policy";
 import { handleApiObservabilityRequest } from "./api/api-observability";
 import { handleWorkerLogsRequest } from "./api/worker-logs";
 import { handleObservabilityDebugRequest, handleWorkerObservabilityRequest } from "./api/worker-observability";
@@ -158,6 +159,22 @@ async function routeRequest(request: Request, env: Env, ctx: ExecutionContext): 
         return await handleZarazConfigRequest(env);
       } catch (err) {
         console.error("Zaraz config API error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResponse(message, 500);
+      }
+    }
+
+    // Self-service "who can access this admin panel" management, under
+    // Profile -- adds/removes emails from the same Cloudflare Access
+    // policy configured in the Cloudflare dashboard (see
+    // worker/api/access-policy.ts). One route, three methods (GET list /
+    // POST add / DELETE remove) since they all operate on the exact same
+    // resource.
+    if (url.pathname === "/api/access-policy/emails") {
+      try {
+        return await handleAccessPolicyEmailsRequest(request, env);
+      } catch (err) {
+        console.error("Access policy emails API error:", err);
         const message = err instanceof Error ? err.message : String(err);
         return errorResponse(message, 500);
       }

@@ -100,6 +100,16 @@ export interface Env {
    * added (see README.md) -- the existing Zone-only policy can't reach
    * this endpoint on its own. */
   CLOUDFLARE_ACCOUNT_ID?: string;
+  /** Id of the reusable "AdminPanel allowlist" Access policy (visible in
+   * its own Cloudflare dashboard URL, e.g. .../access-controls/policies/
+   * {this-id}/edit) -- powers the Profile > "Admin panel access"
+   * self-service add/remove-email feature (see
+   * worker/api/access-policy.ts). Not sensitive, same reasoning as the
+   * zone/account ids above. Reuses the SAME CLOUDFLARE_ACCOUNT_ID/
+   * CLOUDFLARE_API_TOKEN pair as the Access audit-log widget, but that
+   * token needs one additional permission on its Account-scoped policy
+   * row: Access: Apps and Policies: Edit (see README.md). */
+  CLOUDFLARE_ACCESS_POLICY_ID?: string;
   /** Workers Analytics Engine binding for self-hosted API observability
    * (see worker/lib/api-metrics.ts and wrangler.jsonc). Optional like
    * every other binding here -- absence just means recordApiMetric()

@@ -12,6 +12,7 @@ const KNOWN_PATH_SEGMENTS = new Set([
   "api", "public", "me", "welcome",
   "analytics", "realtime", "edge-analytics",
   "cf-ops", "ssl-status", "cache-purge", "dns-records", "access-logs", "zaraz-config",
+  "access-policy", "emails",
   "search-console",
   "site-audit", "run", "latest", "runs",
   "gallery", "gallery-categories", "bulk",

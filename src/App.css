@@ -2360,6 +2360,19 @@ button.profile-menu-item {
   word-break: break-all;
 }
 
+.admin-access-badge {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
 .admin-access-add {
   display: flex;
   gap: 0.6rem;

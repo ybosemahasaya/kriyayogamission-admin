@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOutIcon } from "./icons";
+import { AdminAccessModal } from "./AdminAccessModal";
+import { LogOutIcon, ShieldCheckIcon } from "./icons";
+import { Modal } from "./Modal";
 
 interface MeResponse {
   email: string | null;
@@ -15,9 +17,16 @@ interface MeResponse {
  * Only "Sign out" lives in the menu -- resist padding this out with
  * Settings/Pricing/Subscriptions-style rows just because that's a
  * common profile-menu pattern elsewhere; this app doesn't have those
- * features (YAGNI, same call already made for the sidebar nav). */
+ * features (YAGNI, same call already made for the sidebar nav).
+ *
+ * "Admin panel access" is the one deliberate exception: it's not a
+ * generic settings row, it's the self-service equivalent of the exact
+ * Cloudflare dashboard task (editing the AdminPanel allowlist Access
+ * policy) an admin would otherwise have to leave this app to do -- see
+ * worker/api/access-policy.ts. */
 export function ProfileMenu() {
   const [open, setOpen] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +79,19 @@ export function ProfileMenu() {
           </div>
 
           <div className="profile-menu-list">
+            <button
+              type="button"
+              className="profile-menu-item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setShowAccessModal(true);
+              }}
+            >
+              <ShieldCheckIcon />
+              Admin panel access
+            </button>
+
             {/* Real top-level navigation, not a fetch -- Access's logout
                 clears the CF_Authorization cookie via a redirect flow
                 that needs an actual page load to complete correctly. */}
@@ -79,6 +101,12 @@ export function ProfileMenu() {
             </a>
           </div>
         </div>
+      )}
+
+      {showAccessModal && (
+        <Modal title="Admin panel access" onClose={() => setShowAccessModal(false)}>
+          <AdminAccessModal />
+        </Modal>
       )}
     </div>
   );

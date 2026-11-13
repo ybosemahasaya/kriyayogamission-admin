@@ -165,6 +165,12 @@ scoped to editing Access policies specifically, nothing broader.
   nothing, depending on how Cloudflare treats an empty Include list.
 - Removing your OWN currently-authenticated email is rejected -- no
   accidentally locking yourself out of the panel you're sitting in.
+- Removing `ybosemahasaya@gmail.com` (the primary account) is rejected
+  unconditionally, regardless of who's logged in -- hardcoded as
+  `PRIMARY_ACCOUNT_EMAIL` in `shared/access-policy.ts`, not derived from
+  "whichever email is first in the list." The remove button for it is
+  also disabled client-side (badged "Primary"), but the server check is
+  the real guarantee.
 - Adding an email already on the list is a silent no-op, not an error.
 
 ### Admin API observability (Workers Analytics Engine)

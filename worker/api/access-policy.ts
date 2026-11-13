@@ -1,4 +1,4 @@
-import type { AccessPolicyEmailsDTO } from "../../shared/access-policy";
+import { PRIMARY_ACCOUNT_EMAIL, type AccessPolicyEmailsDTO } from "../../shared/access-policy";
 import { cfApiRequest } from "../lib/cf-rest-client";
 import { errorResponse, getAccessUserEmail, json } from "../lib/http";
 import type { Env } from "../types";
@@ -122,6 +122,14 @@ export async function handleAccessPolicyEmailsRequest(request: Request, env: Env
     const requesterEmail = getAccessUserEmail(request)?.toLowerCase();
     if (requesterEmail && requesterEmail === email) {
       return errorResponse("You can't remove your own access. Ask another admin to remove it instead.", 400);
+    }
+
+    // The primary account is permanently protected -- hardcoded, not
+    // "whichever email happens to be first," so it can never be removed
+    // even by someone else who's otherwise allowed to manage this list.
+    // See shared/access-policy.ts for why this lives there, not here.
+    if (email === PRIMARY_ACCOUNT_EMAIL.toLowerCase()) {
+      return errorResponse("This is the primary account and can't be removed from the allowlist.", 400);
     }
 
     const policy = await fetchPolicy(creds);

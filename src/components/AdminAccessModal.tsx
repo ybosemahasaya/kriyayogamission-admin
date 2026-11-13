@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PRIMARY_ACCOUNT_EMAIL } from "../../shared/access-policy";
 import { addAccessPolicyEmail, removeAccessPolicyEmail } from "../api/access-policy";
 import { useAccessPolicyEmails } from "../hooks/useAccessPolicyEmails";
 import { PlusIcon, TrashIcon } from "./icons";
@@ -12,10 +13,11 @@ import { PlusIcon, TrashIcon } from "./icons";
  * itself is the authorization boundary.
  *
  * Deliberately skips a confirm() on removal, unlike CachePurgeButton --
- * the worker already refuses to remove your own email or the last
- * remaining one, which covers the actually-dangerous outcomes; adding
- * a second confirmation on top would just be friction for the common,
- * safe case (revoking someone else's access). */
+ * the worker already refuses to remove your own email, the primary
+ * account's email, or the last remaining one, which covers the
+ * actually-dangerous outcomes; adding a second confirmation on top
+ * would just be friction for the common, safe case (revoking someone
+ * else's access). */
 export function AdminAccessModal() {
   const { emails, loading, error, notConfigured, setEmails, reload } = useAccessPolicyEmails();
   const [newEmail, setNewEmail] = useState("");
@@ -75,20 +77,26 @@ export function AdminAccessModal() {
 
       {emails && (
         <ul className="admin-access-list">
-          {emails.map((email) => (
-            <li key={email} className="admin-access-row">
-              <span className="admin-access-email">{email}</span>
-              <button
-                type="button"
-                className="icon-btn icon-btn-danger"
-                title="Remove access"
-                disabled={busyEmail === email}
-                onClick={() => handleRemove(email)}
-              >
-                <TrashIcon />
-              </button>
-            </li>
-          ))}
+          {emails.map((email) => {
+            const isPrimary = email === PRIMARY_ACCOUNT_EMAIL.toLowerCase();
+            return (
+              <li key={email} className="admin-access-row">
+                <span className="admin-access-email">
+                  {email}
+                  {isPrimary && <span className="admin-access-badge">Primary</span>}
+                </span>
+                <button
+                  type="button"
+                  className="icon-btn icon-btn-danger"
+                  title={isPrimary ? "The primary account can't be removed" : "Remove access"}
+                  disabled={isPrimary || busyEmail === email}
+                  onClick={() => handleRemove(email)}
+                >
+                  <TrashIcon />
+                </button>
+              </li>
+            );
+          })}
           {emails.length === 0 && <p className="empty-state">No emails allowed yet -- add one below.</p>}
         </ul>
       )}
